@@ -54,11 +54,15 @@ export async function POST(request: NextRequest) {
               VALUES (?,1,?,NULL)
               ON CONFLICT(email) DO UPDATE SET
                 attempts=auth_login_attempts.attempts+1,
+                window_started_at=CASE
+                  WHEN auth_login_attempts.attempts+1 >= ${LOGIN_MAX_FAILURES} THEN ?
+                  ELSE auth_login_attempts.window_started_at
+                END,
                 blocked_until=CASE
                   WHEN auth_login_attempts.attempts+1 >= ${LOGIN_MAX_FAILURES} THEN ?+${LOGIN_WINDOW_SECONDS}
                   ELSE auth_login_attempts.blocked_until
                 END`,
-        args: [normalizedEmail, now, now]
+        args: [normalizedEmail, now, now, now]
       });
       await db.execute({
         sql: "INSERT INTO audit_log (id,user_id,action,entity_type,metadata_json) VALUES (?,?,?,?,?)",

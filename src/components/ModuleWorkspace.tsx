@@ -147,7 +147,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     const planData = {
       ...data, id: editingPlan?.id, durationDays: data.durationDays === "" ? null : Number(data.durationDays),
       maxActivations: Number(data.maxActivations), offlineDays: Number(data.offlineDays),
-      active: editingPlan ? true : true
+      active: editingPlan ? Number(editingPlan.active) === 1 : true
     };
     try {
       const response = await fetch("/api/license-types", { method: editingPlan ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(planData) });

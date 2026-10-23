@@ -202,7 +202,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     {kind === "productos" && <section className="panel"><h2>Registrar producto</h2><form onSubmit={submit} className="form-grid">
       <label>Nombre del sistema<input name="name" required maxLength={160} placeholder="Ej. SICOVEN" /></label><label>Edición<input name="edition" placeholder="Profesional, estándar…" /></label><label>Versión<input name="version" /></label><label className="wide">Descripción<textarea name="description" rows={2} /></label><button disabled={busy}>{busy ? "Guardando…" : "Guardar producto"}</button>
     </form></section>}
-    {kind === "licencias" && <section className="panel"><h2>Emitir licencia</h2><form onSubmit={submit} className="form-grid">
+    {kind === "licencias" && <><section className="panel"><h2>Emitir licencia</h2><form onSubmit={submit} className="form-grid">
       <label>Cliente<select name="customerId" required defaultValue=""><option value="" disabled>Seleccionar cliente</option>{customers.map(c => <option key={text(c.id)} value={text(c.id)}>{text(c.display_name)}</option>)}</select></label>
       <label>Producto<select name="productId" required defaultValue=""><option value="" disabled>Seleccionar producto</option>{products.map(p => <option key={text(p.id)} value={text(p.id)}>{text(p.name)} {p.edition ? `· ${text(p.edition)}` : ""}</option>)}</select></label>
       <label>Tipo de licencia<select name="licenseTypeId" required defaultValue=""><option value="" disabled>Seleccionar plan</option>{licenseTypes.filter(t => Number(t.active) === 1).map(t => <option key={text(t.id)} value={text(t.id)}>{text(t.name)} · {t.duration_days === null ? "Vitalicia" : `${text(t.duration_days)} días`} · {text(t.max_activations)} equipo(s)</option>)}</select></label>
@@ -223,7 +223,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
         <button disabled={busy}>{busy ? "Guardando…" : editingPlan ? "Guardar cambios" : "Crear tipo de licencia"}</button>{editingPlan && <button type="button" className="secondary" onClick={() => setEditingPlan(null)}>Cancelar edición</button>}
       </form>
       {licenseTypes.length > 0 && <div className="table-wrap"><table><thead><tr><th>Plan</th><th>Vigencia</th><th>Equipos</th><th>Offline</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{licenseTypes.map(t => <tr key={text(t.id)}><td>{text(t.name)}</td><td>{t.duration_days === null ? "Vitalicia" : `${text(t.duration_days)} días`}</td><td>{text(t.max_activations)}</td><td>{text(t.offline_days)} días</td><td>{Number(t.active) === 1 ? "Activo" : "Inactivo"}</td><td><button type="button" className="secondary" onClick={() => setEditingPlan(t)}>Editar</button> <button type="button" className="danger" onClick={() => void togglePlan(t)}>{Number(t.active) === 1 ? "Desactivar" : "Activar"}</button></td></tr>)}</tbody></table></div>}
-    </section>}
+    </section></>}
     {notice && <p className="notice" role="status">{notice}</p>}{error && <p className="error" role="alert">{error}</p>}
     {kind === "clientes" && <div className="search"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar por nombre, cédula, RIF o correo…" /><button className="secondary" onClick={() => void load()}>Buscar</button></div>}
     <section className="panel"><div className="list-heading"><h2>Registros</h2><span>{loading ? "Cargando…" : `${items.length} registros mostrados`}</span></div>

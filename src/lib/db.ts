@@ -45,6 +45,14 @@ export async function ensureSchema() {
       starts_at TEXT, expires_at TEXT, max_activations INTEGER NOT NULL DEFAULT 1 CHECK(max_activations > 0),
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, created_by TEXT NOT NULL REFERENCES crm_users(id)
     )` },
+    { sql: `CREATE TABLE IF NOT EXISTS license_types (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, duration_days INTEGER,
+      max_activations INTEGER NOT NULL DEFAULT 1 CHECK(max_activations > 0),
+      offline_days INTEGER NOT NULL DEFAULT 7 CHECK(offline_days BETWEEN 1 AND 30),
+      support_terms TEXT, update_terms TEXT, extra_activation_terms TEXT,
+      terms TEXT NOT NULL DEFAULT '', price_label TEXT, active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )` },
     { sql: `CREATE TABLE IF NOT EXISTS activations (
       id TEXT PRIMARY KEY, license_id TEXT NOT NULL REFERENCES licenses(id),
       installation_id TEXT NOT NULL, device_label TEXT, status TEXT NOT NULL DEFAULT 'active'
@@ -61,4 +69,14 @@ export async function ensureSchema() {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )` }
   ], "write");
+
+  // Additive migrations for existing production databases; safe to run repeatedly.
+  const licenseColumns = await db.execute("PRAGMA table_info(licenses)");
+  const existingColumns = new Set(licenseColumns.rows.map((column) => String(column.name)));
+  const migrations: string[] = [];
+  if (!existingColumns.has("license_type_id")) migrations.push("ALTER TABLE licenses ADD COLUMN license_type_id TEXT REFERENCES license_types(id)");
+  if (!existingColumns.has("license_type_name")) migrations.push("ALTER TABLE licenses ADD COLUMN license_type_name TEXT");
+  if (!existingColumns.has("license_terms_json")) migrations.push("ALTER TABLE licenses ADD COLUMN license_terms_json TEXT");
+  if (!existingColumns.has("offline_days")) migrations.push("ALTER TABLE licenses ADD COLUMN offline_days INTEGER NOT NULL DEFAULT 7");
+  for (const sql of migrations) await db.execute(sql);
 }

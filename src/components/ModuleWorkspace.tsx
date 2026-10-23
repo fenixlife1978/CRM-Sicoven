@@ -49,7 +49,8 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setIssuedKey("");
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const data = Object.fromEntries(form.entries());
     if (kind === "clientes") {
       if (data.type === "person") {
@@ -64,7 +65,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       if (!response.ok) throw new Error(result.error || "No se pudo guardar.");
       if (result.licenseKey) setIssuedKey(result.licenseKey);
       setNotice(kind === "licencias" ? "Licencia emitida. Copia la clave ahora; no se volverá a mostrar." : "Registro guardado correctamente.");
-      event.currentTarget.reset();
+      formElement.reset();
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Error al guardar."); }
     finally { setBusy(false); }

@@ -90,7 +90,13 @@ export async function DELETE(request: NextRequest) {
     if (Number(count.rows[0]?.total ?? 0) < 2) {
       return NextResponse.json({ error: "Primero crea y verifica un segundo administrador activo." }, { status: 409 });
     }
-    await db.execute({ sql: "DELETE FROM crm_users WHERE id=?", args: [id] });
+    // Preserve foreign-key integrity and historical business records when retiring the seed account.
+    await db.batch([
+      { sql: "UPDATE customers SET created_by=? WHERE created_by=?", args: [session.sub, id] },
+      { sql: "UPDATE licenses SET created_by=? WHERE created_by=?", args: [session.sub, id] },
+      { sql: "UPDATE audit_log SET user_id=NULL WHERE user_id=?", args: [id] },
+      { sql: "DELETE FROM crm_users WHERE id=?", args: [id] }
+    ], "write");
     await db.execute({
       sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",
       args: [randomUUID(), session.sub, "seed_admin_deleted", "user", id, JSON.stringify({ email: String(target.email) })]

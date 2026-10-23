@@ -36,8 +36,10 @@ export async function POST(request: NextRequest) {
     const customerId = typeof data.customerId === "string" ? data.customerId : "";
     const productId = typeof data.productId === "string" ? data.productId : "";
     const maxActivations = Number(data.maxActivations ?? 1);
-    const startsAt = typeof data.startsAt === "string" && data.startsAt ? data.startsAt : null;
-    const expiresAt = typeof data.expiresAt === "string" && data.expiresAt ? data.expiresAt : null;
+    const startsInput = typeof data.startsAt === "string" && data.startsAt ? data.startsAt : null;
+    const expiresInput = typeof data.expiresAt === "string" && data.expiresAt ? data.expiresAt : null;
+    const startsAt = startsInput && /^\\d{4}-\\d{2}-\\d{2}$/.test(startsInput) ? `${startsInput}T00:00:00.000Z` : startsInput;
+    const expiresAt = expiresInput && /^\\d{4}-\\d{2}-\\d{2}$/.test(expiresInput) ? `${expiresInput}T23:59:59.999Z` : expiresInput;
     if (!customerId || !productId || !Number.isInteger(maxActivations) || maxActivations < 1 || maxActivations > 100) {
       return NextResponse.json({ error: "Cliente, producto y límite válido de equipos son obligatorios." }, { status: 400 });
     }

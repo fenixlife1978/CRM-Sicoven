@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       sql: "SELECT attempts,window_started_at,blocked_until FROM auth_login_attempts WHERE email=? LIMIT 1",
       args: [normalizedEmail]
     });
-    let attempts = attemptsResult.rows[0];
+    let attempts: (typeof attemptsResult.rows)[number] | undefined = attemptsResult.rows[0];
     if (attempts && now - Number(attempts.window_started_at) >= LOGIN_WINDOW_SECONDS) {
       await db.execute({ sql: "DELETE FROM auth_login_attempts WHERE email=?", args: [normalizedEmail] });
       attempts = undefined;

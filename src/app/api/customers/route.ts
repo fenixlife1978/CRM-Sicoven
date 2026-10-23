@@ -72,17 +72,19 @@ export async function POST(request: NextRequest) {
 
     const id = randomUUID();
     const db = getDb();
-    await db.execute({
-      sql: `INSERT INTO customers
-        (id,type,display_name,first_name,last_name,identity_document,personal_tax_id,legal_name,tax_id,trade_name,legal_representative,email,phone,address,notes,created_by)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      args: [id,type,displayName,firstName,lastName,identityDocument,personalTaxId,legalName,taxId,tradeName,legalRepresentative,email,phone,address,
-        [notes, profession ? `Actividad/profesión: ${profession}` : null].filter(Boolean).join("\n") || null, session.sub]
-    });
-    await db.execute({
-      sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id) VALUES (?,?,?,?,?)",
-      args: [randomUUID(), session.sub, "customer_created", "customer", id]
-    });
+    await db.batch([
+      {
+        sql: `INSERT INTO customers
+          (id,type,display_name,first_name,last_name,identity_document,personal_tax_id,legal_name,tax_id,trade_name,legal_representative,email,phone,address,notes,created_by)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        args: [id,type,displayName,firstName,lastName,identityDocument,personalTaxId,legalName,taxId,tradeName,legalRepresentative,email,phone,address,
+          [notes, profession ? `Actividad/profesión: ${profession}` : null].filter(Boolean).join("\\n") || null, session.sub]
+      },
+      {
+        sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id) VALUES (?,?,?,?,?)",
+        args: [randomUUID(), session.sub, "customer_created", "customer", id]
+      }
+    ], "write");
     return NextResponse.json({ ok: true, id }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";

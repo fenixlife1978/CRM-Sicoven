@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { getDb } from "@/lib/db";
 
 const COOKIE_NAME = "crm_sicoven_session";
 const SESSION_SECONDS = 60 * 60 * 8;
@@ -26,10 +27,29 @@ export async function getSession(): Promise<SessionUser | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secretKey(), { algorithms: ["HS256"] });
-    if (typeof payload.sub !== "string" || typeof payload.email !== "string" ||
-        !["admin", "operator", "viewer"].includes(String(payload.role))) return null;
-    return { sub: payload.sub, email: payload.email, role: payload.role as SessionUser["role"] };
-  } catch { return null; }
+    if (typeof payload.sub !== "string") return null;
+
+    // A signed cookie proves who originally logged in, not that the account
+    // is still enabled. Re-read the canonical user on each authenticated request
+    // so deactivation and role changes take effect without waiting eight hours.
+    const result = await getDb().execute({
+      sql: "SELECT id,email,role,active FROM crm_users WHERE id=? LIMIT 1",
+      args: [payload.sub]
+    });
+    const user = result.rows[0];
+    if (!user || Number(user.active) !== 1 ||
+        !["admin", "operator", "viewer"].includes(String(user.role))) return null;
+
+    return {
+      sub: String(user.id),
+      email: String(user.email),
+      role: String(user.role) as SessionUser["role"]
+    };
+  } catch {
+    // Fail closed: invalid token or unavailable session authority must not
+    // grant access based solely on stale claims embedded in the cookie.
+    return null;
+  }
 }
 
 export async function clearSession() {

@@ -21,18 +21,18 @@ function downloadCertificate(certificate: Record<string, unknown>) {
   const terms = (certificate.terms && typeof certificate.terms === "object" ? certificate.terms : {}) as Record<string, unknown>;
   const lines = [
     "CERTIFICADO DE LICENCIA DE SOFTWARE - CRM SICOVEN",
-    \`Certificado: \${String(certificate.certificateId ?? "")}\`,
-    \`Cliente: \${String(certificate.customerName ?? "")}\`,
-    \`Correo: \${String(certificate.customerEmail ?? "No indicado")}\`,
-    \`Telefono: \${String(certificate.customerPhone ?? "No indicado")}\`,
-    \`Producto: \${String(certificate.productName ?? "")} \${String(certificate.productEdition ?? "")}\`,
-    \`Version: \${String(certificate.productVersion ?? "No indicada")}\`,
-    \`Tipo de licencia: \${String(certificate.licenseTypeName ?? "")}\`,
-    \`Clave confidencial: \${String(certificate.licenseKey ?? "")}\`,
-    \`Equipos/terminales autorizados: \${String(certificate.maxActivations ?? 1)}\`,
-    \`Inicio: \${String(certificate.startsAt ?? "Desde la activacion")}\`,
-    \`Vigencia: \${certificate.expiresAt ? String(certificate.expiresAt) : "VITALICIA - SIN FECHA DE EXPIRACION"}\`,
-    \`Dias maximos offline antes de revalidar: \${String(certificate.offlineDays ?? 7)}\`,
+    `Certificado: \${String(certificate.certificateId ?? "")}`,
+    `Cliente: \${String(certificate.customerName ?? "")}`,
+    `Correo: \${String(certificate.customerEmail ?? "No indicado")}`,
+    `Telefono: \${String(certificate.customerPhone ?? "No indicado")}`,
+    `Producto: \${String(certificate.productName ?? "")} \${String(certificate.productEdition ?? "")}`,
+    `Version: \${String(certificate.productVersion ?? "No indicada")}`,
+    `Tipo de licencia: \${String(certificate.licenseTypeName ?? "")}`,
+    `Clave confidencial: \${String(certificate.licenseKey ?? "")}`,
+    `Equipos/terminales autorizados: \${String(certificate.maxActivations ?? 1)}`,
+    `Inicio: \${String(certificate.startsAt ?? "Desde la activacion")}`,
+    `Vigencia: \${certificate.expiresAt ? String(certificate.expiresAt) : "VITALICIA - SIN FECHA DE EXPIRACION"}`,
+    `Dias maximos offline antes de revalidar: \${String(certificate.offlineDays ?? 7)}`,
     "",
     "INSTALACION Y ACTIVACION",
     "La instalacion y activacion inicial requieren obligatoriamente internet en el equipo.",
@@ -47,31 +47,31 @@ function downloadCertificate(certificate: Record<string, unknown>) {
     "La clave y este certificado son confidenciales; conservelos para soporte.",
     "",
     "CONDICIONES COMERCIALES",
-    \`Soporte: \${String(terms.supportTerms || "Segun el acuerdo comercial con el proveedor.")}\`,
-    \`Actualizaciones: \${String(terms.updateTerms || "Segun el acuerdo comercial con el proveedor.")}\`,
-    \`Terminales adicionales: \${String(terms.extraActivationTerms || "Requieren autorizacion y extension de licencia antes de usarse.")}\`,
-    \`Terminos: \${String(terms.terms || "El uso esta sujeto a la licencia concedida y a la politica de activacion y revocacion.")}\`,
+    `Soporte: \${String(terms.supportTerms || "Segun el acuerdo comercial con el proveedor.")}`,
+    `Actualizaciones: \${String(terms.updateTerms || "Segun el acuerdo comercial con el proveedor.")}`,
+    `Terminales adicionales: \${String(terms.extraActivationTerms || "Requieren autorizacion y extension de licencia antes de usarse.")}`,
+    `Terminos: \${String(terms.terms || "El uso esta sujeto a la licencia concedida y a la politica de activacion y revocacion.")}`,
     "",
     "Para cambiar el equipo, solicite autorizacion al proveedor. La activacion anterior puede ser revocada."
   ];
-  const stream = \`BT /F1 10 Tf 48 790 Td 14 TL \${lines.map((line, index) => \`\${index ? "T* " : ""}(\${pdfEscape(line)}) Tj\`).join(" ")} ET\`;
+  const stream = `BT /F1 10 Tf 48 790 Td 14 TL \${lines.map((line, index) => `\${index ? "T* " : ""}(\${pdfEscape(line)}) Tj`).join(" ")} ET`;
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    \`<< /Length \${new TextEncoder().encode(stream).length} >>\nstream\n\${stream}\nendstream\`
+    `<< /Length \${new TextEncoder().encode(stream).length} >>\nstream\n\${stream}\nendstream`
   ];
   let pdf = "%PDF-1.4\n";
   const offsets = [0];
-  objects.forEach((object, index) => { offsets.push(new TextEncoder().encode(pdf).length); pdf += \`\${index + 1} 0 obj\n\${object}\nendobj\n\`; });
+  objects.forEach((object, index) => { offsets.push(new TextEncoder().encode(pdf).length); pdf += `\${index + 1} 0 obj\n\${object}\nendobj\n`; });
   const xref = new TextEncoder().encode(pdf).length;
-  pdf += \`xref\n0 \${objects.length + 1}\n0000000000 65535 f \n\`;
-  offsets.slice(1).forEach(offset => { pdf += \`\${String(offset).padStart(10, "0")} 00000 n \n\`; });
-  pdf += \`trailer\n<< /Size \${objects.length + 1} /Root 1 0 R >>\nstartxref\n\${xref}\n%%EOF\`;
+  pdf += `xref\n0 \${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach(offset => { pdf += `\${String(offset).padStart(10, "0")} 00000 n \n`; });
+  pdf += `trailer\n<< /Size \${objects.length + 1} /Root 1 0 R >>\nstartxref\n\${xref}\n%%EOF`;
   const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
   const anchor = document.createElement("a");
-  anchor.href = url; anchor.download = \`certificado-\${String(certificate.certificateId ?? "sicoven")}.pdf\`;
+  anchor.href = url; anchor.download = `certificado-\${String(certificate.certificateId ?? "sicoven")}.pdf`;
   anchor.click(); URL.revokeObjectURL(url);
 }
 

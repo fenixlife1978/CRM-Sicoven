@@ -51,6 +51,10 @@ export async function ensureSchema() {
       CHECK(status IN ('active','revoked')), activated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       last_seen_at TEXT, revoked_at TEXT, UNIQUE(license_id, installation_id)
     )` },
+    { sql: `CREATE TABLE IF NOT EXISTS auth_login_attempts (
+      email TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0,
+      window_started_at INTEGER NOT NULL, blocked_until INTEGER
+    )` },
     { sql: `CREATE TABLE IF NOT EXISTS audit_log (
       id TEXT PRIMARY KEY, user_id TEXT REFERENCES crm_users(id), action TEXT NOT NULL,
       entity_type TEXT NOT NULL, entity_id TEXT, metadata_json TEXT,

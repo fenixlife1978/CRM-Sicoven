@@ -42,14 +42,16 @@ export async function POST(request: NextRequest) {
     if (!name) return NextResponse.json({ error: "El nombre del producto es obligatorio." }, { status: 400 });
     const id = randomUUID();
     const db = getDb();
-    await db.execute({
-      sql: "INSERT INTO products (id,name,edition,version,description) VALUES (?,?,?,?,?)",
-      args: [id,name,edition,version,description]
-    });
-    await db.execute({
-      sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",
-      args: [randomUUID(),session.sub,"product_created","product",id,JSON.stringify({name,edition,version})]
-    });
+    await db.batch([
+      {
+        sql: "INSERT INTO products (id,name,edition,version,description) VALUES (?,?,?,?,?)",
+        args: [id,name,edition,version,description]
+      },
+      {
+        sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",
+        args: [randomUUID(),session.sub,"product_created","product",id,JSON.stringify({name,edition,version})]
+      }
+    ], "write");
     return NextResponse.json({ ok: true, id }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "No se pudo guardar el producto." }, { status: 503 });

@@ -1,31 +1,48 @@
 # CRM SICOVEN
 
-CRM privado para administrar clientes, productos, ventas comerciales y licencias de los programas instalables del ecosistema SICOVEN.
+CRM privado para administrar clientes, catálogo de productos, licencias de software y equipos activados del ecosistema SICOVEN. Este repositorio es independiente de los instaladores de escritorio.
 
-## Tipos de cliente
+## Implementado en la rama `cloud-crm-foundation`
 
-- **Persona natural:** nombres, apellidos, cédula, RIF personal opcional, profesión/actividad y datos de contacto.
-- **Empresa:** razón social, RIF, nombre comercial opcional, representante/contacto y datos de contacto.
+- Inicio y cierre de sesión con cookie HTTP-only, JWT firmado y contraseña almacenada como hash bcrypt.
+- Alta y consulta de clientes persona natural o empresa, con validaciones e índices únicos para cédula y RIF.
+- Alta y consulta del catálogo de productos.
+- Emisión de licencias con clave aleatoria; en la base de datos se almacena únicamente su hash y una pista parcial.
+- Activación de equipos con límite de dispositivos aplicado dentro de una transacción; token de licencia firmado para uso offline con vencimiento acotado.
+- Consulta de activaciones, revocación administrativa y registro de eventos en auditoría.
+- Panel y módulos web que consultan la base de datos real; no se incorporan registros ficticios.
+- El CRM y las aplicaciones instalables se mantienen separados.
 
-Una ficha de cliente puede relacionarse con múltiples productos, compras, licencias y equipos activados. Los identificadores se normalizan y validan por tipo para reducir duplicados; no se confunden cédulas con RIF.
+## Variables de entorno
 
-## Principios de seguridad
+Configurar en el entorno de ejecución, nunca en el repositorio:
 
-- CRM y aplicaciones de escritorio se mantienen como proyectos separados.
-- No almacenar contraseñas en texto plano ni incluir secretos en el repositorio.
-- Las licencias se generan y validan en el servidor; los límites de activación se aplican con operaciones atómicas.
-- La activación inicial requiere conexión. El funcionamiento posterior sin conexión debe apoyarse en una licencia firmada, con caducidad/política explícita y validación local.
-- No incluir datos personales ficticios en producción.
-- No desplegar a producción ni configurar credenciales externas hasta verificar la aplicación y las variables necesarias.
+- `TURSO_DATABASE_URL`
+- `TURSO_AUTH_TOKEN`
+- `SESSION_SECRET` (mínimo 32 caracteres aleatorios)
+- `LICENSE_SIGNING_SECRET` (mínimo 32 caracteres aleatorios; mantenerlo estable para validar tokens emitidos)
+- `CRM_ADMIN_EMAIL` (opcional para crear el primer administrador si no existe)
+- `CRM_ADMIN_PASSWORD` (opcional, mínimo 12 caracteres; se usa solo para el alta inicial)
+- `LICENSE_OFFLINE_DAYS` (opcional, valor predeterminado 7 y máximo 30)
 
-## Etapas previstas
+La función de bootstrap crea las tablas necesarias y crea el administrador inicial solo cuando las variables de correo y contraseña están configuradas y ese correo aún no existe. Cambiar las variables no restablece automáticamente una contraseña existente.
 
-1. Estructura base, decisiones de arquitectura y validaciones.
-2. Autenticación administrativa y gestión de clientes.
-3. Catálogo de productos, licencias y activaciones.
-4. Auditoría, límites de equipos, revocación y pruebas de seguridad.
-5. Despliegue independiente en Vercel y configuración de base de datos.
+## Desarrollo
 
-## Estado
+```bash
+npm install
+npm run dev
+npm run lint
+npm run build
+```
 
-Inicio de proyecto. No considerar el sistema listo para producción hasta implementar y probar autenticación, persistencia, control de acceso, emisión/verificación de licencias y auditoría.
+## Pendiente de verificación antes de producción
+
+- Ejecutar lint, comprobación TypeScript y build de producción.
+- Probar login, cierre de sesión, persistencia, duplicados, roles y auditoría contra una base Turso de prueba.
+- Probar concurrencia real en el límite de activaciones y el ciclo completo de emisión, activación, renovación y revocación.
+- Implementar y probar un verificador del token offline en las aplicaciones que lo consuman; la emisión del token por sí sola no integra esa verificación en los instaladores.
+- Revisar controles de abuso/rate limiting del login, política de expiración de sesiones, seguridad CSRF/origen y recuperación administrativa.
+- Configurar variables en el proyecto Vercel correcto y desplegar solo después de completar estas verificaciones.
+
+**Estado:** base funcional en desarrollo; no declarar listo para producción hasta completar las pruebas y verificaciones anteriores.

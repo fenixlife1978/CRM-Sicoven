@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       };
       if (!startsAt) startsAt = new Date().toISOString();
       if (plan.duration_days !== null && plan.duration_days !== undefined) {
-        const expiry = new Date(Date.parse(startsAt) + Number(plan.duration_days) * 86400000);
+        const expiry = new Date(Date.parse(startsAt) + (Number(plan.duration_days) - 1) * 86400000);
         expiry.setUTCHours(23,59,59,999);
         expiresAt = expiry.toISOString();
       } else {

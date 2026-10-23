@@ -13,6 +13,70 @@ const config: Record<Kind, { title: string; endpoint: string; collection: string
   activaciones: { title: "Activaciones", endpoint: "/api/activations", collection: "activations" }
 };
 
+function pdfEscape(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, "?").replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
+}
+
+function downloadCertificate(certificate: Record<string, unknown>) {
+  const terms = (certificate.terms && typeof certificate.terms === "object" ? certificate.terms : {}) as Record<string, unknown>;
+  const lines = [
+    "CERTIFICADO DE LICENCIA DE SOFTWARE - CRM SICOVEN",
+    "Certificado: " + String(certificate.certificateId ?? ""),
+    "Cliente: " + String(certificate.customerName ?? ""),
+    "Correo: " + String(certificate.customerEmail ?? "No indicado"),
+    "Telefono: " + String(certificate.customerPhone ?? "No indicado"),
+    "Producto: " + String(certificate.productName ?? "") + " " + String(certificate.productEdition ?? ""),
+    "Version: " + String(certificate.productVersion ?? "No indicada"),
+    "Tipo de licencia: " + String(certificate.licenseTypeName ?? ""),
+    "Clave confidencial: " + String(certificate.licenseKey ?? ""),
+    "Equipos/terminales autorizados: " + String(certificate.maxActivations ?? 1),
+    "Inicio: " + String(certificate.startsAt ?? "Desde la activacion"),
+    "Vigencia: " + (certificate.expiresAt ? String(certificate.expiresAt) : "VITALICIA - SIN FECHA DE EXPIRACION"),
+    "Dias maximos offline antes de revalidar: " + String(certificate.offlineDays ?? 7),
+    "",
+    "INSTALACION Y ACTIVACION",
+    "La instalacion y activacion inicial requieren obligatoriamente internet en el equipo.",
+    "Despues de activar, el sistema puede trabajar offline dentro del plazo firmado autorizado.",
+    "Al iniciar, el software comprobara la licencia cuando haya conectividad.",
+    "Si el servidor confirma una revocacion, se cerrara la sesion y se bloqueara el acceso.",
+    "Un equipo totalmente desconectado no puede recibir una revocacion hasta reconectarse;",
+    "la autorizacion offline caduca segun el plazo indicado arriba.",
+    "",
+    "CUIDADO DE LA CLAVE",
+    "Guarde la clave en un lugar seguro. No la publique ni la comparta.",
+    "La clave y este certificado son confidenciales; conservelos para soporte.",
+    "",
+    "CONDICIONES COMERCIALES",
+    "Soporte: " + String(terms.supportTerms || "Segun el acuerdo comercial con el proveedor."),
+    "Actualizaciones: " + String(terms.updateTerms || "Segun el acuerdo comercial con el proveedor."),
+    "Terminales adicionales: " + String(terms.extraActivationTerms || "Requieren autorizacion y extension de licencia antes de usarse."),
+    "Terminos: " + String(terms.terms || "El uso esta sujeto a la licencia concedida y a la politica de activacion y revocacion."),
+    "",
+    "Para cambiar el equipo, solicite autorizacion al proveedor. La activacion anterior puede ser revocada."
+  ];
+  const stream = "BT /F1 10 Tf 48 790 Td 14 TL " + lines.map((line, index) => (index ? "T* " : "") + "(" + pdfEscape(line) + ") Tj").join(" ") + " ET";
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Length " + new TextEncoder().encode(stream).length + " >>\nstream\n" + stream + "\nendstream"
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => { offsets.push(new TextEncoder().encode(pdf).length); pdf += (index + 1) + " 0 obj\n" + object + "\nendobj\n"; });
+  const xref = new TextEncoder().encode(pdf).length;
+  pdf += "xref\n0 " + (objects.length + 1) + "\n0000000000 65535 f \n";
+  offsets.slice(1).forEach(offset => { pdf += String(offset).padStart(10, "0") + " 00000 n \n"; });
+  pdf += "trailer\n<< /Size " + (objects.length + 1) + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF";
+  const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "certificado-" + String(certificate.certificateId ?? "sicoven") + ".pdf";
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 function text(value: unknown) {
   return value === null || value === undefined || value === "" ? "—" : String(value);
 }
@@ -28,6 +92,9 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [issuedKey, setIssuedKey] = useState("");
+  const [licenseTypes, setLicenseTypes] = useState<RecordItem[]>([]);
+  const [certificate, setCertificate] = useState<Record<string, unknown> | null>(null);
+  const [editingPlan, setEditingPlan] = useState<RecordItem | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -37,10 +104,11 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       if (!response.ok) throw new Error(result.error || "No se pudieron cargar los registros.");
       setItems(Array.isArray(result[current.collection]) ? result[current.collection] : []);
       if (kind === "licencias") {
-        const [c, p] = await Promise.all([fetch("/api/customers", { cache: "no-store" }), fetch("/api/products", { cache: "no-store" })]);
-        const cr = await c.json(), pr = await p.json();
+        const [c, p, t] = await Promise.all([fetch("/api/customers", { cache: "no-store" }), fetch("/api/products", { cache: "no-store" }), fetch("/api/license-types", { cache: "no-store" })]);
+        const cr = await c.json(), pr = await p.json(), tr = await t.json();
         if (c.ok) setCustomers(cr.customers || []);
         if (p.ok) setProducts(pr.products || []);
+        if (t.ok) setLicenseTypes(tr.licenseTypes || []);
       }
     } catch (e) { setError(e instanceof Error ? e.message : "Error de conexión."); }
     finally { setLoading(false); }
@@ -65,11 +133,50 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "No se pudo guardar.");
       if (result.licenseKey) setIssuedKey(result.licenseKey);
-      setNotice(kind === "licencias" ? "Licencia emitida. Copia la clave ahora; no se volverá a mostrar." : "Registro guardado correctamente.");
+      if (result.certificate) setCertificate(result.certificate as Record<string, unknown>);
+      setNotice(kind === "licencias" ? "Licencia emitida. Descarga el certificado PDF y guarda la clave de forma segura." : "Registro guardado correctamente.");
       formElement.reset();
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Error al guardar."); }
     finally { setBusy(false); }
+  }
+
+  async function submitPlan(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError(""); setNotice("");
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const planData = {
+      ...data, id: editingPlan?.id, durationDays: data.durationDays === "" ? null : Number(data.durationDays),
+      maxActivations: Number(data.maxActivations), offlineDays: Number(data.offlineDays),
+      active: editingPlan ? Number(editingPlan.active) === 1 : true
+    };
+    try {
+      const response = await fetch("/api/license-types", { method: editingPlan ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(planData) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "No se pudo guardar el plan.");
+      setNotice(editingPlan ? "Tipo de licencia actualizado." : "Tipo de licencia creado.");
+      setEditingPlan(null); await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Error al guardar el plan."); }
+    finally { setBusy(false); }
+  }
+
+  async function togglePlan(plan: RecordItem) {
+    const active = Number(plan.active) === 1;
+    const payload = {
+      id: plan.id, name: plan.name, durationDays: plan.duration_days === null ? null : Number(plan.duration_days),
+      maxActivations: Number(plan.max_activations), offlineDays: Number(plan.offline_days),
+      supportTerms: text(plan.support_terms) === "—" ? "" : plan.support_terms,
+      updateTerms: text(plan.update_terms) === "—" ? "" : plan.update_terms,
+      extraActivationTerms: text(plan.extra_activation_terms) === "—" ? "" : plan.extra_activation_terms,
+      terms: text(plan.terms) === "—" ? "" : plan.terms,
+      priceLabel: text(plan.price_label) === "—" ? "" : plan.price_label, active: !active
+    };
+    try {
+      const response = await fetch("/api/license-types", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "No se pudo cambiar el estado.");
+      setNotice(!active ? "Tipo de licencia activado." : "Tipo de licencia desactivado; no se podrá usar en nuevas emisiones.");
+      await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Error al cambiar el estado."); }
   }
 
   async function revoke(id: string) {
@@ -95,11 +202,28 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     {kind === "productos" && <section className="panel"><h2>Registrar producto</h2><form onSubmit={submit} className="form-grid">
       <label>Nombre del sistema<input name="name" required maxLength={160} placeholder="Ej. SICOVEN" /></label><label>Edición<input name="edition" placeholder="Profesional, estándar…" /></label><label>Versión<input name="version" /></label><label className="wide">Descripción<textarea name="description" rows={2} /></label><button disabled={busy}>{busy ? "Guardando…" : "Guardar producto"}</button>
     </form></section>}
-    {kind === "licencias" && <section className="panel"><h2>Emitir licencia</h2><form onSubmit={submit} className="form-grid">
+    {kind === "licencias" && <><section className="panel"><h2>Emitir licencia</h2><form onSubmit={submit} className="form-grid">
       <label>Cliente<select name="customerId" required defaultValue=""><option value="" disabled>Seleccionar cliente</option>{customers.map(c => <option key={text(c.id)} value={text(c.id)}>{text(c.display_name)}</option>)}</select></label>
       <label>Producto<select name="productId" required defaultValue=""><option value="" disabled>Seleccionar producto</option>{products.map(p => <option key={text(p.id)} value={text(p.id)}>{text(p.name)} {p.edition ? `· ${text(p.edition)}` : ""}</option>)}</select></label>
-      <label>Máximo de equipos<input name="maxActivations" type="number" min="1" max="100" defaultValue="1" required /></label><label>Inicio de vigencia<input name="startsAt" type="date" /></label><label>Vencimiento<input name="expiresAt" type="date" /></label><button disabled={busy}>{busy ? "Emitiendo…" : "Emitir licencia"}</button>
-    </form>{issuedKey && <div className="key-box"><strong>Clave de licencia (cópiala ahora)</strong><code>{issuedKey}</code><button type="button" className="secondary" onClick={() => void navigator.clipboard.writeText(issuedKey)}>Copiar clave</button></div>}</section>}
+      <label>Tipo de licencia<select name="licenseTypeId" required defaultValue=""><option value="" disabled>Seleccionar plan</option>{licenseTypes.filter(t => Number(t.active) === 1).map(t => <option key={text(t.id)} value={text(t.id)}>{text(t.name)} · {t.duration_days === null ? "Vitalicia" : `${text(t.duration_days)} días`} · {text(t.max_activations)} equipo(s)</option>)}</select></label>
+      <label>Inicio de vigencia<input name="startsAt" type="date" /></label><p className="muted">La duración y los equipos autorizados los determina el tipo de licencia. La vigencia vitalicia se guarda sin fecha de vencimiento.</p><button disabled={busy}>{busy ? "Emitiendo…" : "Emitir licencia"}</button>
+    </form>{issuedKey && <div className="key-box"><strong>Clave de licencia (cópiala ahora)</strong><code>{issuedKey}</code><button type="button" className="secondary" onClick={() => void navigator.clipboard.writeText(issuedKey)}>Copiar clave</button></div>}
+    {certificate && <div className="key-box"><div><strong>Certificado listo para descargar</strong><p className="muted">Incluye clave, vigencia, equipos, política offline, condiciones e instrucciones de instalación.</p></div><button type="button" onClick={() => downloadCertificate(certificate)}>Descargar certificado PDF</button></div>}</section>
+    <section className="panel"><h2>{editingPlan ? "Editar tipo de licencia" : "Crear tipo de licencia"}</h2><p className="muted">La duración vacía significa vitalicia. El plazo offline limita cuánto puede operar un equipo sin revalidar la licencia.</p>
+      <form onSubmit={submitPlan} className="form-grid">
+        <label>Nombre del plan<input name="name" required defaultValue={text(editingPlan?.name) === "—" ? "" : text(editingPlan?.name)} placeholder="Ej. Perpetua Profesional" /></label>
+        <label>Duración en días (vacío = vitalicia)<input name="durationDays" type="number" min="1" max="36500" defaultValue={editingPlan?.duration_days === null || editingPlan?.duration_days === undefined ? "" : text(editingPlan.duration_days)} /></label>
+        <label>Equipos/terminales autorizados<input name="maxActivations" type="number" min="1" max="100" defaultValue={text(editingPlan?.max_activations) === "—" ? "1" : text(editingPlan?.max_activations)} required /></label>
+        <label>Días offline antes de exigir revalidación<input name="offlineDays" type="number" min="1" max="30" defaultValue={text(editingPlan?.offline_days) === "—" ? "7" : text(editingPlan?.offline_days)} required /></label>
+        <label>Precio o referencia comercial<input name="priceLabel" defaultValue={text(editingPlan?.price_label) === "—" ? "" : text(editingPlan?.price_label)} /></label>
+        <label>Condiciones de soporte<input name="supportTerms" defaultValue={text(editingPlan?.support_terms) === "—" ? "" : text(editingPlan?.support_terms)} /></label>
+        <label>Actualizaciones<input name="updateTerms" defaultValue={text(editingPlan?.update_terms) === "—" ? "" : text(editingPlan?.update_terms)} /></label>
+        <label>Terminales adicionales<input name="extraActivationTerms" defaultValue={text(editingPlan?.extra_activation_terms) === "—" ? "" : text(editingPlan?.extra_activation_terms)} placeholder="Requiere extensión de licencia…" /></label>
+        <label className="wide">Términos de uso<textarea name="terms" rows={3} defaultValue={text(editingPlan?.terms) === "—" ? "" : text(editingPlan?.terms)} /></label>
+        <button disabled={busy}>{busy ? "Guardando…" : editingPlan ? "Guardar cambios" : "Crear tipo de licencia"}</button>{editingPlan && <button type="button" className="secondary" onClick={() => setEditingPlan(null)}>Cancelar edición</button>}
+      </form>
+      {licenseTypes.length > 0 && <div className="table-wrap"><table><thead><tr><th>Plan</th><th>Vigencia</th><th>Equipos</th><th>Offline</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{licenseTypes.map(t => <tr key={text(t.id)}><td>{text(t.name)}</td><td>{t.duration_days === null ? "Vitalicia" : `${text(t.duration_days)} días`}</td><td>{text(t.max_activations)}</td><td>{text(t.offline_days)} días</td><td>{Number(t.active) === 1 ? "Activo" : "Inactivo"}</td><td><button type="button" className="secondary" onClick={() => setEditingPlan(t)}>Editar</button> <button type="button" className="danger" onClick={() => void togglePlan(t)}>{Number(t.active) === 1 ? "Desactivar" : "Activar"}</button></td></tr>)}</tbody></table></div>}
+    </section></>}
     {notice && <p className="notice" role="status">{notice}</p>}{error && <p className="error" role="alert">{error}</p>}
     {kind === "clientes" && <div className="search"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar por nombre, cédula, RIF o correo…" /><button className="secondary" onClick={() => void load()}>Buscar</button></div>}
     <section className="panel"><div className="list-heading"><h2>Registros</h2><span>{loading ? "Cargando…" : `${items.length} registros mostrados`}</span></div>

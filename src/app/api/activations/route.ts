@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     try {
       const keyHash = createHash("sha256").update(key).digest("hex");
       const found = await tx.execute({
-        sql: `SELECT l.id,l.status,l.starts_at,l.expires_at,l.max_activations,c.display_name AS customer_name,p.name AS product_name
+        sql: `SELECT l.id,l.status,l.starts_at,l.expires_at,l.max_activations,l.offline_days,c.display_name AS customer_name,p.name AS product_name
               FROM licenses l JOIN customers c ON c.id=l.customer_id JOIN products p ON p.id=l.product_id
               WHERE l.license_key_hash=? AND c.status='active' AND p.status='active' LIMIT 1`,
         args: [keyHash]
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
         sql: "INSERT INTO audit_log (id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?)",
         args: [randomUUID(),"license_activated","license",String(license.id),JSON.stringify({activationId,installationId,deviceLabel})]
       });
-      const offlineDays = Math.min(30, Math.max(1, Number(process.env.LICENSE_OFFLINE_DAYS ?? 7)));
+      const offlineDays = Math.min(30, Math.max(1, Number(license.offline_days ?? process.env.LICENSE_OFFLINE_DAYS ?? 7)));
       const offlineToken = await new SignJWT({
         licenseId: String(license.id),
         activationId,

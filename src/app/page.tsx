@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession, clearSession } from "@/lib/auth";
 import { bootstrapDatabase } from "@/lib/bootstrap";
@@ -45,10 +46,10 @@ export default async function HomePage() {
   return (
     <main className="shell">
       <aside className="sidebar">
-        <a className="brand" href="/"><span className="brand-mark">S</span><span><strong>SICOVEN</strong><small>CRM · CENTRO DE CONTROL</small></span></a>
+        <Link className="brand" href="/"><span className="brand-mark">S</span><span><strong>SICOVEN</strong><small>CRM · CENTRO DE CONTROL</small></span></Link>
         <p className="nav-label">GESTIÓN</p>
-        <a className="nav-item active" href="/">▦ <span>Resumen</span></a>
-        {cards.map(card => <a className="nav-item" href={card.href} key={card.href}>▣ <span>{card.title}</span></a>)}
+        <Link className="nav-item active" href="/">▦ <span>Resumen</span></Link>
+        {cards.map(card => <Link className="nav-item" href={card.href} key={card.href}>▣ <span>{card.title}</span></Link>)}
         <div className="sidebar-footer"><span className={databaseReady ? "status-dot good" : "status-dot"} />{databaseReady ? "Turso conectado" : "Base de datos no disponible"}</div>
       </aside>
       <section className="content">
@@ -56,7 +57,7 @@ export default async function HomePage() {
         <section className="welcome"><div><span className="eyebrow light">ECOSISTEMA SICOVEN</span><h2>Clientes, productos y licencias<br/>bajo un solo control.</h2><p>Los indicadores se consultan directamente desde la base de datos Turso.</p></div><span className="welcome-symbol">S</span></section>
         {!databaseReady && <p className="db-warning" role="status">No fue posible conectar con la base de datos. Los datos no están disponibles; revisa la configuración del servidor.</p>}
         <div className="section-heading"><div><h2>Módulos principales</h2><p>Resumen en tiempo real de los registros existentes.</p></div><span className={databaseReady ? "pill" : "pill warn"}>{databaseReady ? "DATOS REALES · TURSO" : "SIN CONEXIÓN"}</span></div>
-        <div className="module-grid">{cards.map(card => <a className="module-card" href={card.href} key={card.href}><span className="module-number">{card.number}</span><h3>{card.title}</h3><strong className="metric">{card.value}</strong><p>{card.description}</p><span className="module-status">Abrir módulo <b>↗</b></span></a>)}</div>
+        <div className="module-grid">{cards.map(card => <Link className="module-card" href={card.href} key={card.href}><span className="module-number">{card.number}</span><h3>{card.title}</h3><strong className="metric">{card.value}</strong><p>{card.description}</p><span className="module-status">Abrir módulo <b>↗</b></span></Link>)}</div>
         <section className="client-note"><span className="note-icon">✓</span><div><h3>Registro y seguridad</h3><p>Las contraseñas se almacenan cifradas mediante hash. Las operaciones administrativas quedan registradas para auditoría. No se muestran datos de demostración.</p></div></section>
         <footer>CRM SICOVEN · Aplicación independiente · {databaseReady ? "Conectado a Turso" : "Verificación de conexión pendiente"}</footer>
       </section>

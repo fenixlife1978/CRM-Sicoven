@@ -46,8 +46,7 @@ export async function POST(request: NextRequest) {
     };
     const startsInput = typeof data.startsAt === "string" && data.startsAt ? data.startsAt : null;
     const expiresInput = typeof data.expiresAt === "string" && data.expiresAt ? data.expiresAt : null;
-    const startsAt = startsInput && /^\d{4}-\d{2}-\d{2}$/.test(startsInput) ? `${startsInput}T00:00:00.000Z` : startsInput;
-    let expiresAt = expiresInput && /^\d{4}-\d{2}-\d{2}$/.test(expiresInput) ? `${expiresInput}T23:59:59.999Z` : expiresInput;
+    let startsAt = expiresInput && /^\d{4}-\d{2}-\d{2}$/.test(expiresInput) ? `${expiresInput}T23:59:59.999Z` : expiresInput;
     let startsAt = startsInput && /^\d{4}-\d{2}-\d{2}$/.test(startsInput) ? `${startsInput}T00:00:00.000Z` : startsInput;
     const db = getDb();
     if (licenseTypeId) {

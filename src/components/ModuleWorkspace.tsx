@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type Kind = "clientes" | "productos" | "licencias" | "activaciones";
@@ -83,7 +84,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
   }
 
   return <main className="workspace">
-    <header><div><a href="/">← Resumen</a><p className="eyebrow">CRM SICOVEN</p><h1>{current.title}</h1><p className="muted">Registros consultados desde la base de datos central.</p></div><button className="secondary" onClick={() => void load()} disabled={loading}>Actualizar</button></header>
+    <header><div><Link href="/">← Resumen</Link><p className="eyebrow">CRM SICOVEN</p><h1>{current.title}</h1><p className="muted">Registros consultados desde la base de datos central.</p></div><button className="secondary" onClick={() => void load()} disabled={loading}>Actualizar</button></header>
     {kind === "clientes" && <section className="panel"><h2>Registrar cliente</h2><form onSubmit={submit} className="form-grid">
       <label>Tipo de cliente<select name="type" required><option value="person">Persona natural</option><option value="company">Empresa</option></select></label>
       <label>Nombres<input name="firstName" placeholder="Nombres" /></label><label>Apellidos<input name="lastName" placeholder="Apellidos" /></label><label>Cédula<input name="identityDocument" placeholder="V-12345678" /></label><label>RIF personal (opcional)<input name="personalTaxId" /></label><label>Profesión / actividad<input name="profession" /></label>

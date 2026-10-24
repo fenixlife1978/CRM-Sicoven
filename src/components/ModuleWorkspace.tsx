@@ -129,7 +129,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     const data = Object.fromEntries(new FormData(event.currentTarget).entries());
     const planData = {
       ...data, id: editingPlan?.id, durationDays: data.durationDays === "" ? null : Number(data.durationDays),
-      maxActivations: Number(data.maxActivations), offlineDays: Number(data.offlineDays), priceAmount: Number(data.priceAmount || 0), expansionPrice: Number(data.expansionPrice || 0),
+      maxActivations: Number(data.maxActivations), priceAmount: Number(data.priceAmount || 0), expansionPrice: Number(data.expansionPrice || 0),
       active: editingPlan ? Number(editingPlan.active) === 1 : true
     };
     try {
@@ -146,7 +146,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     const active = Number(plan.active) === 1;
     const payload = {
       id: plan.id, name: plan.name, durationDays: plan.duration_days === null ? null : Number(plan.duration_days),
-      maxActivations: Number(plan.max_activations), offlineDays: Number(plan.offline_days),
+      maxActivations: Number(plan.max_activations),
       supportTerms: text(plan.support_terms) === "—" ? "" : plan.support_terms,
       updateTerms: text(plan.update_terms) === "—" ? "" : plan.update_terms,
       extraActivationTerms: text(plan.extra_activation_terms) === "—" ? "" : plan.extra_activation_terms,

@@ -86,7 +86,7 @@ export async function PATCH(request: NextRequest) {
     const expansionPrice = Number(data.expansionPrice ?? 0);
     const expansionBillingCycle = ["once","monthly","yearly"].includes(String(data.expansionBillingCycle)) ? String(data.expansionBillingCycle) : "once";
     const currency = typeof data.currency === "string" && /^[A-Z]{3}$/.test(data.currency) ? data.currency : "USD";
-    if (!id || !name || !validLimits(durationDays, maxActivations, offlineDays) || typeof data.active !== "boolean" ||
+    if (!id || !name || !validLimits(durationDays, maxActivations) || typeof data.active !== "boolean" ||
         !Number.isFinite(priceAmount) || priceAmount < 0 || !Number.isFinite(expansionPrice) || expansionPrice < 0) {
       return NextResponse.json({ error: "Datos de edición no válidos." }, { status: 400 });
     }

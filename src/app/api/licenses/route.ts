@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const productId = typeof data.productId === "string" ? data.productId : "";
     const licenseTypeId = typeof data.licenseTypeId === "string" ? data.licenseTypeId : "";
     let maxActivations = Number(data.maxActivations ?? 1);
-    let offlineDays = Math.min(30, Math.max(1, Number(data.offlineDays ?? 7)));
+    let offlineDays = 0;
     let licenseTypeName = "Personalizada";
     let billingCycle = "once";
     let billingAmount = 0;
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       billingAmount = Math.max(0, Number(plan.price_amount ?? 0));
       currency = /^[A-Z]{3}$/.test(String(plan.currency ?? "USD")) ? String(plan.currency) : "USD";
       maxActivations = Number(plan.max_activations);
-      offlineDays = Number(plan.offline_days);
+      offlineDays = 0;
       licenseTerms = {
         durationDays: plan.duration_days === null ? null : Number(plan.duration_days),
         supportTerms: String(plan.support_terms ?? ""),
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
       certificate: {
         certificateId: `SIC-CERT-${id.slice(0,8).toUpperCase()}`,
         issuedAt: new Date().toISOString(), licenseKey: rawKey,
-        licenseTypeName, startsAt, expiresAt, maxActivations, offlineDays, terms: licenseTerms,
+        licenseTypeName, startsAt, expiresAt, maxActivations, issuedAt: new Date().toISOString(), terms: licenseTerms,
         ...(details.rows[0] ?? {})
       }
     }, { status: 201 });

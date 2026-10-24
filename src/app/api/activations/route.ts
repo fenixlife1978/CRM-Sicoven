@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
         sql: "INSERT INTO audit_log (id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?)",
         args: [randomUUID(),"license_activated","license",String(license.id),JSON.stringify({activationId,installationId,deviceLabel})]
       });
-      const offlineDays = Math.min(30, Math.max(1, Number(license.offline_days ?? process.env.LICENSE_OFFLINE_DAYS ?? 7)));
+      const offlineDays = Math.max(0, Math.min(36500, Number(license.offline_days ?? process.env.LICENSE_OFFLINE_DAYS ?? 7)));
       const offlineToken = await new SignJWT({
         licenseId: String(license.id),
         activationId,
@@ -112,11 +112,11 @@ export async function POST(request: NextRequest) {
         customer: String(license.customer_name),
         product: String(license.product_name)
       }).setProtectedHeader({ alg: "HS256" })
-        .setIssuedAt()
-        .setExpirationTime(`${offlineDays}d`)
-        .sign(licenseSecret());
+        .setIssuedAt();
+      if (offlineDays > 0) offlineToken.setExpirationTime(`${offlineDays}d`);
+      const signedOfflineToken = await offlineToken.sign(licenseSecret());
       await tx.commit();
-      return NextResponse.json({ ok: true, license: { id: String(license.id), customer: String(license.customer_name), product: String(license.product_name), offlineToken, offlineValidDays: offlineDays } });
+      return NextResponse.json({ ok: true, license: { id: String(license.id), customer: String(license.customer_name), product: String(license.product_name), offlineToken: signedOfflineToken, offlineValidDays: offlineDays } });
     } catch (error) {
       await tx.rollback().catch(() => undefined);
       throw error;

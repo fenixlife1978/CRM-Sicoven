@@ -55,7 +55,7 @@ export async function ensureSchema() {
     )` },
     { sql: `CREATE TABLE IF NOT EXISTS activations (
       id TEXT PRIMARY KEY, license_id TEXT NOT NULL REFERENCES licenses(id),
-      installation_id TEXT NOT NULL, device_label TEXT, status TEXT NOT NULL DEFAULT 'active'
+      installation_id TEXT NOT NULL, device_label TEXT, device_fingerprint TEXT, status TEXT NOT NULL DEFAULT 'active'
       CHECK(status IN ('active','revoked')), activated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       last_seen_at TEXT, revoked_at TEXT, UNIQUE(license_id, installation_id)
     )` },
@@ -71,6 +71,10 @@ export async function ensureSchema() {
   ], "write");
 
   // Additive migrations for existing production databases; safe to run repeatedly.
+  const activationColumns = await db.execute("PRAGMA table_info(activations)");
+  const existingActivationColumns = new Set(activationColumns.rows.map((column) => String(column.name)));
+  if (!existingActivationColumns.has("device_fingerprint")) await db.execute("ALTER TABLE activations ADD COLUMN device_fingerprint TEXT");
+  await db.execute("CREATE INDEX IF NOT EXISTS activations_license_fingerprint_idx ON activations(license_id, device_fingerprint)");
   const licenseColumns = await db.execute("PRAGMA table_info(licenses)");
   const existingColumns = new Set(licenseColumns.rows.map((column) => String(column.name)));
   const migrations: string[] = [];

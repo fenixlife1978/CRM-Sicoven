@@ -128,7 +128,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     const data = Object.fromEntries(new FormData(event.currentTarget).entries());
     const planData = {
       ...data, id: editingPlan?.id, durationDays: data.durationDays === "" ? null : Number(data.durationDays),
-      maxActivations: Number(data.maxActivations), offlineDays: Number(data.offlineDays),
+      maxActivations: Number(data.maxActivations), offlineDays: Number(data.offlineDays), priceAmount: Number(data.priceAmount || 0), expansionPrice: Number(data.expansionPrice || 0),
       active: editingPlan ? Number(editingPlan.active) === 1 : true
     };
     try {
@@ -150,7 +150,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       updateTerms: text(plan.update_terms) === "—" ? "" : plan.update_terms,
       extraActivationTerms: text(plan.extra_activation_terms) === "—" ? "" : plan.extra_activation_terms,
       terms: text(plan.terms) === "—" ? "" : plan.terms,
-      priceLabel: text(plan.price_label) === "—" ? "" : plan.price_label, active: !active
+      priceLabel: text(plan.price_label) === "—" ? "" : plan.price_label, billingCycle: plan.billing_cycle || "once", priceAmount: Number(plan.price_amount || 0), currency: plan.currency || "USD", expansionPrice: Number(plan.expansion_price || 0), expansionBillingCycle: plan.expansion_billing_cycle || "once", active: !active
     };
     try {
       const response = await fetch("/api/license-types", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -196,15 +196,20 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
         <label>Nombre del plan<input name="name" required defaultValue={text(editingPlan?.name) === "—" ? "" : text(editingPlan?.name)} placeholder="Ej. Perpetua Profesional" /></label>
         <label>Duración en días (vacío = vitalicia)<input name="durationDays" type="number" min="1" max="36500" defaultValue={editingPlan?.duration_days === null || editingPlan?.duration_days === undefined ? "" : text(editingPlan.duration_days)} /></label>
         <label>Equipos/terminales autorizados<input name="maxActivations" type="number" min="1" max="100" defaultValue={text(editingPlan?.max_activations) === "—" ? "1" : text(editingPlan?.max_activations)} required /></label>
-        <label>Días offline antes de exigir revalidación<input name="offlineDays" type="number" min="1" max="30" defaultValue={text(editingPlan?.offline_days) === "—" ? "7" : text(editingPlan?.offline_days)} required /></label>
+        <label>Días offline antes de exigir revalidación (0 = ilimitado)<input name="offlineDays" type="number" min="0" max="36500" defaultValue={text(editingPlan?.offline_days) === "—" ? "7" : text(editingPlan?.offline_days)} required /></label>
         <label>Precio o referencia comercial<input name="priceLabel" defaultValue={text(editingPlan?.price_label) === "—" ? "" : text(editingPlan?.price_label)} /></label>
+        <label>Precio de licencia<input name="priceAmount" type="number" min="0" step="0.01" defaultValue={text(editingPlan?.price_amount) === "—" ? "0" : text(editingPlan?.price_amount)} /></label>
+        <label>Periodicidad de licencia<select name="billingCycle" defaultValue={text(editingPlan?.billing_cycle) === "—" ? "once" : text(editingPlan?.billing_cycle)}><option value="once">Pago único / vitalicia</option><option value="monthly">Mensual</option><option value="yearly">Anual</option></select></label>
+        <label>Moneda (ISO 4217)<input name="currency" maxLength={3} defaultValue={text(editingPlan?.currency) === "—" ? "USD" : text(editingPlan?.currency)} /></label>
+        <label>Precio por unidad de ampliación<input name="expansionPrice" type="number" min="0" step="0.01" defaultValue={text(editingPlan?.expansion_price) === "—" ? "0" : text(editingPlan?.expansion_price)} /></label>
+        <label>Periodicidad de ampliación<select name="expansionBillingCycle" defaultValue={text(editingPlan?.expansion_billing_cycle) === "—" ? "once" : text(editingPlan?.expansion_billing_cycle)}><option value="once">Pago único</option><option value="monthly">Mensual recurrente</option><option value="yearly">Anual recurrente</option></select></label>
         <label>Condiciones de soporte<input name="supportTerms" defaultValue={text(editingPlan?.support_terms) === "—" ? "" : text(editingPlan?.support_terms)} /></label>
         <label>Actualizaciones<input name="updateTerms" defaultValue={text(editingPlan?.update_terms) === "—" ? "" : text(editingPlan?.update_terms)} /></label>
         <label>Terminales adicionales<input name="extraActivationTerms" defaultValue={text(editingPlan?.extra_activation_terms) === "—" ? "" : text(editingPlan?.extra_activation_terms)} placeholder="Requiere extensión de licencia…" /></label>
         <label className="wide">Términos de uso<textarea name="terms" rows={3} defaultValue={text(editingPlan?.terms) === "—" ? "" : text(editingPlan?.terms)} /></label>
         <button disabled={busy}>{busy ? "Guardando…" : editingPlan ? "Guardar cambios" : "Crear tipo de licencia"}</button>{editingPlan && <button type="button" className="secondary" onClick={() => setEditingPlan(null)}>Cancelar edición</button>}
       </form>
-      {licenseTypes.length > 0 && <div className="table-wrap"><table><thead><tr><th>Plan</th><th>Vigencia</th><th>Equipos</th><th>Offline</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{licenseTypes.map(t => <tr key={text(t.id)}><td>{text(t.name)}</td><td>{t.duration_days === null ? "Vitalicia" : `${text(t.duration_days)} días`}</td><td>{text(t.max_activations)}</td><td>{text(t.offline_days)} días</td><td>{Number(t.active) === 1 ? "Activo" : "Inactivo"}</td><td><button type="button" className="secondary" onClick={() => setEditingPlan(t)}>Editar</button> <button type="button" className="danger" onClick={() => void togglePlan(t)}>{Number(t.active) === 1 ? "Desactivar" : "Activar"}</button></td></tr>)}</tbody></table></div>}
+      {licenseTypes.length > 0 && <div className="table-wrap"><table><thead><tr><th>Plan</th><th>Vigencia</th><th>Equipos</th><th>Offline</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{licenseTypes.map(t => <tr key={text(t.id)}><td>{text(t.name)}</td><td>{t.duration_days === null ? "Vitalicia" : `${text(t.duration_days)} días`}</td><td>{text(t.max_activations)}</td><td>{Number(t.offline_days) === 0 ? "Ilimitado" : `${text(t.offline_days)} días`}</td><td>{text(t.price_amount)} {text(t.currency)} / {text(t.billing_cycle)}</td><td>{Number(t.active) === 1 ? "Activo" : "Inactivo"}</td><td><button type="button" className="secondary" onClick={() => setEditingPlan(t)}>Editar</button> <button type="button" className="danger" onClick={() => void togglePlan(t)}>{Number(t.active) === 1 ? "Desactivar" : "Activar"}</button></td></tr>)}</tbody></table></div>}
     </section></>}
     {notice && <p className="notice" role="status">{notice}</p>}{error && <p className="error" role="alert">{error}</p>}
     {kind === "clientes" && <div className="search"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar por nombre, cédula, RIF o correo…" /><button className="secondary" onClick={() => void load()}>Buscar</button></div>}

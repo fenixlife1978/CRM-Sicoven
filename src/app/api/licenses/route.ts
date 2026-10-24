@@ -13,7 +13,7 @@ export async function GET() {
     await bootstrapDatabase();
     const result = await getDb().execute({
       sql: `SELECT l.id,l.customer_id,l.product_id,l.license_key_hint,l.status,l.starts_at,l.expires_at,l.max_activations,l.created_at,
-                   l.license_type_name,l.offline_days,c.display_name AS customer_name,c.email AS customer_email,c.phone AS customer_phone,c.address AS customer_address,
+                   l.license_type_name,l.offline_days,l.billing_cycle,l.billing_amount,l.currency,l.next_billing_at,c.display_name AS customer_name,c.email AS customer_email,c.phone AS customer_phone,c.address AS customer_address,
                    p.name AS product_name,p.edition AS product_edition,p.version AS product_version,l.license_terms_json,
                    (SELECT COUNT(*) FROM activations a WHERE a.license_id=l.id AND a.status='active') AS active_activations
             FROM licenses l JOIN customers c ON c.id=l.customer_id JOIN products p ON p.id=l.product_id
@@ -40,6 +40,9 @@ export async function POST(request: NextRequest) {
     let maxActivations = Number(data.maxActivations ?? 1);
     let offlineDays = Math.min(30, Math.max(1, Number(data.offlineDays ?? 7)));
     let licenseTypeName = "Personalizada";
+    let billingCycle = "once";
+    let billingAmount = 0;
+    let currency = "USD";
     let licenseTerms: Record<string, unknown> = {
       durationDays: null, supportTerms: "", updateTerms: "",
       extraActivationTerms: "", terms: "", offlineDays
@@ -54,6 +57,9 @@ export async function POST(request: NextRequest) {
       const plan = planResult.rows[0];
       if (!plan) return NextResponse.json({ error: "El tipo de licencia seleccionado no existe o está inactivo." }, { status: 400 });
       licenseTypeName = String(plan.name);
+      billingCycle = ["once","monthly","yearly"].includes(String(plan.billing_cycle)) ? String(plan.billing_cycle) : "once";
+      billingAmount = Math.max(0, Number(plan.price_amount ?? 0));
+      currency = /^[A-Z]{3}$/.test(String(plan.currency ?? "USD")) ? String(plan.currency) : "USD";
       maxActivations = Number(plan.max_activations);
       offlineDays = Number(plan.offline_days);
       licenseTerms = {
@@ -63,6 +69,7 @@ export async function POST(request: NextRequest) {
         extraActivationTerms: String(plan.extra_activation_terms ?? ""),
         terms: String(plan.terms ?? ""),
         priceLabel: String(plan.price_label ?? ""),
+        billingCycle, billingAmount, currency,
         offlineDays
       };
       if (!startsAt) startsAt = new Date().toISOString();
@@ -96,10 +103,14 @@ export async function POST(request: NextRequest) {
     const rawKey = `SIC-${randomBytes(4).toString("hex").toUpperCase()}-${randomBytes(4).toString("hex").toUpperCase()}-${randomBytes(4).toString("hex").toUpperCase()}`;
     const keyHash = createHash("sha256").update(rawKey).digest("hex");
     const keyHint = `…${rawKey.slice(-4)}`;
-    await db.batch([
-      { sql: "INSERT INTO licenses (id,customer_id,product_id,license_key_hash,license_key_hint,status,starts_at,expires_at,max_activations,created_by,license_type_id,license_type_name,license_terms_json,offline_days) VALUES (?,?,?,?,?,'pending',?,?,?,?,?,?,?,?)", args: [id,customerId,productId,keyHash,keyHint,startsAt,expiresAt,maxActivations,session.sub,licenseTypeId || null,licenseTypeName,JSON.stringify(licenseTerms),offlineDays] },
-      { sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),session.sub,"license_issued","license",id,JSON.stringify({customerId,productId,maxActivations,licenseTypeId,licenseTypeName,expiresAt,offlineDays})] }
-    ], "write");
+    const now = new Date();
+    const nextBilling = billingCycle === "monthly" ? new Date(now.getTime() + 30 * 86400000).toISOString() : billingCycle === "yearly" ? new Date(now.getTime() + 365 * 86400000).toISOString() : null;
+    const statements = [
+      { sql: "INSERT INTO licenses (id,customer_id,product_id,license_key_hash,license_key_hint,status,starts_at,expires_at,max_activations,created_by,license_type_id,license_type_name,license_terms_json,offline_days,billing_cycle,billing_amount,currency,next_billing_at) VALUES (?,?,?,?,?,'pending',?,?,?,?,?,?,?,?,?,?,?,?)", args: [id,customerId,productId,keyHash,keyHint,startsAt,expiresAt,maxActivations,session.sub,licenseTypeId || null,licenseTypeName,JSON.stringify(licenseTerms),offlineDays,billingCycle,billingAmount,currency,nextBilling] },
+      { sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),session.sub,"license_issued","license",id,JSON.stringify({customerId,productId,maxActivations,licenseTypeId,licenseTypeName,expiresAt,offlineDays,billingCycle,billingAmount,currency})] }
+    ];
+    if (billingAmount > 0) statements.push({ sql: "INSERT INTO license_billing_records (id,license_id,record_type,amount,currency,billing_cycle,period_start,period_end,due_at,status,description,created_by) VALUES (?,?, 'initial',?,?,?,?,?,'pending',?,?,?)", args: [randomUUID(),id,billingAmount,currency,billingCycle,now.toISOString(),nextBilling,now.toISOString(),"Emisión de licencia: " + licenseTypeName,session.sub] });
+    await db.batch(statements, "write");
     const details = await db.execute({
       sql: "SELECT c.display_name AS customerName,c.email AS customerEmail,c.phone AS customerPhone,c.address AS customerAddress,p.name AS productName,p.edition AS productEdition,p.version AS productVersion FROM customers c,products p WHERE c.id=? AND p.id=?",
       args: [customerId,productId]

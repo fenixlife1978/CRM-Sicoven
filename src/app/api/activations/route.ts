@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         });
         if (Number(count.rows[0]?.total ?? 0) >= Number(license.max_activations)) {
           await tx.rollback();
-          return NextResponse.json({ error: "Se alcanzó el máximo de equipos autorizados para esta licencia." }, { status: 409 });
+          return NextResponse.json({ error: "Esta licencia ya agotó los equipos autorizados. Solicita a tu distribuidor una ampliación de la licencia para incorporar más equipos. Una vez actualizado el límite en CRM-Sicoven, podrás activar equipos adicionales con la misma clave." }, { status: 409 });
         }
       }
 

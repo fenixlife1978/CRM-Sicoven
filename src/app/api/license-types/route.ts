@@ -10,10 +10,10 @@ function clean(value: unknown, max = 2000): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
-function validLimits(durationDays: unknown, maxActivations: unknown, offlineDays: unknown) {
+function validLimits(durationDays: unknown, maxActivations: unknown) {
   const durationOk = durationDays === null || durationDays === "" || (Number.isInteger(Number(durationDays)) && Number(durationDays) >= 1 && Number(durationDays) <= 36500);
   return durationOk && Number.isInteger(Number(maxActivations)) && Number(maxActivations) >= 1 && Number(maxActivations) <= 100
-    && Number.isInteger(Number(offlineDays)) && Number(offlineDays) >= 0 && Number(offlineDays) <= 36500;
+    ;
 }
 
 export async function GET() {
@@ -40,9 +40,9 @@ export async function POST(request: NextRequest) {
     const name = clean(data.name, 100);
     const durationDays = data.durationDays === null || data.durationDays === "" ? null : Number(data.durationDays);
     const maxActivations = Number(data.maxActivations ?? 1);
-    const offlineDays = Number(data.offlineDays ?? 0);
-    if (!name || !validLimits(durationDays, maxActivations, offlineDays)) {
-      return NextResponse.json({ error: "Nombre, duración (vitalicia o 1–36500 días), equipos (1–100) o periodo offline no válidos. Use 0 para operación offline sin límite temporal." }, { status: 400 });
+    const offlineDays = 0;
+    if (!name || !validLimits(durationDays, maxActivations)) {
+      return NextResponse.json({ error: "Nombre, duración (vitalicia o 1–36500 días) o cantidad de equipos (1–100) no válidos." }, { status: 400 });
     }
     const billingCycle = ["once","monthly","yearly"].includes(String(data.billingCycle)) ? String(data.billingCycle) : "once";
     const priceAmount = Number(data.priceAmount ?? 0);
@@ -80,7 +80,7 @@ export async function PATCH(request: NextRequest) {
     const name = clean(data.name, 100);
     const durationDays = data.durationDays === null || data.durationDays === "" ? null : Number(data.durationDays);
     const maxActivations = Number(data.maxActivations);
-    const offlineDays = Number(data.offlineDays);
+    const offlineDays = 0;
     const billingCycle = ["once","monthly","yearly"].includes(String(data.billingCycle)) ? String(data.billingCycle) : "once";
     const priceAmount = Number(data.priceAmount ?? 0);
     const expansionPrice = Number(data.expansionPrice ?? 0);

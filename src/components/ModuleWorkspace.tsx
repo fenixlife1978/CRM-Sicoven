@@ -19,64 +19,46 @@ function pdfEscape(value: string) {
 
 function downloadCertificate(certificate: Record<string, unknown>) {
   const terms = (certificate.terms && typeof certificate.terms === "object" ? certificate.terms : {}) as Record<string, unknown>;
-  const lines = [
-    "CERTIFICADO DE LICENCIA DE SOFTWARE - CRM SICOVEN",
-    "Certificado: " + String(certificate.certificateId ?? ""),
-    "Cliente: " + String(certificate.customerName ?? ""),
-    "Correo: " + String(certificate.customerEmail ?? "No indicado"),
-    "Telefono: " + String(certificate.customerPhone ?? "No indicado"),
-    "Producto: " + String(certificate.productName ?? "") + " " + String(certificate.productEdition ?? ""),
-    "Version: " + String(certificate.productVersion ?? "No indicada"),
-    "Tipo de licencia: " + String(certificate.licenseTypeName ?? ""),
-    "Clave confidencial: " + String(certificate.licenseKey ?? ""),
-    "Equipos/terminales autorizados: " + String(certificate.maxActivations ?? 1),
-    "Inicio: " + String(certificate.startsAt ?? "Desde la activacion"),
-    "Vigencia: " + (certificate.expiresAt ? String(certificate.expiresAt) : "VITALICIA - SIN FECHA DE EXPIRACION"),
-    "Dias maximos offline antes de revalidar: " + String(certificate.offlineDays ?? 7),
-    "",
-    "INSTALACION Y ACTIVACION",
-    "La instalacion y activacion inicial requieren obligatoriamente internet en el equipo.",
-    "Despues de activar, el sistema puede trabajar offline dentro del plazo firmado autorizado.",
-    "Al iniciar, el software comprobara la licencia cuando haya conectividad.",
-    "Si el servidor confirma una revocacion, se cerrara la sesion y se bloqueara el acceso.",
-    "Un equipo totalmente desconectado no puede recibir una revocacion hasta reconectarse;",
-    "la autorizacion offline caduca segun el plazo indicado arriba.",
-    "",
-    "CUIDADO DE LA CLAVE",
-    "Guarde la clave en un lugar seguro. No la publique ni la comparta.",
-    "La clave y este certificado son confidenciales; conservelos para soporte.",
-    "",
-    "CONDICIONES COMERCIALES",
-    "Soporte: " + String(terms.supportTerms || "Segun el acuerdo comercial con el proveedor."),
-    "Actualizaciones: " + String(terms.updateTerms || "Segun el acuerdo comercial con el proveedor."),
-    "Terminales adicionales: " + String(terms.extraActivationTerms || "Requieren autorizacion y extension de licencia antes de usarse."),
-    "Terminos: " + String(terms.terms || "El uso esta sujeto a la licencia concedida y a la politica de activacion y revocacion."),
-    "",
-    "Para cambiar el equipo, solicite autorizacion al proveedor. La activacion anterior puede ser revocada."
+  const rows: [string, unknown][] = [
+    ["N.º de certificado", certificate.certificateId],
+    ["Titular de la licencia", certificate.customerName],
+    ["Correo electrónico", certificate.customerEmail || "No indicado"],
+    ["Teléfono", certificate.customerPhone || "No indicado"],
+    ["Producto licenciado", [certificate.productName, certificate.productEdition].filter(Boolean).join(" · ")],
+    ["Versión", certificate.productVersion || "No indicada"],
+    ["Tipo de licencia", certificate.licenseTypeName],
+    ["Equipos autorizados", certificate.maxActivations ?? 1],
+    ["Inicio de vigencia", certificate.startsAt || "Desde la activación"],
+    ["Vencimiento", certificate.expiresAt || "Vitalicia — sin fecha de expiración"],
+    ["Periodo máximo offline", String(certificate.offlineDays ?? 7) + " días"]
   ];
-  const stream = "BT /F1 10 Tf 48 790 Td 14 TL " + lines.map((line, index) => (index ? "T* " : "") + "(" + pdfEscape(line) + ") Tj").join(" ") + " ET";
-  const objects = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    "<< /Length " + new TextEncoder().encode(stream).length + " >>\nstream\n" + stream + "\nendstream"
-  ];
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  objects.forEach((object, index) => { offsets.push(new TextEncoder().encode(pdf).length); pdf += (index + 1) + " 0 obj\n" + object + "\nendobj\n"; });
-  const xref = new TextEncoder().encode(pdf).length;
-  pdf += "xref\n0 " + (objects.length + 1) + "\n0000000000 65535 f \n";
-  offsets.slice(1).forEach(offset => { pdf += String(offset).padStart(10, "0") + " 00000 n \n"; });
-  pdf += "trailer\n<< /Size " + (objects.length + 1) + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF";
-  const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = "certificado-" + String(certificate.certificateId ?? "sicoven") + ".pdf";
-  anchor.click();
-  URL.revokeObjectURL(url);
+  const esc = (value: unknown) => String(value ?? "—").replace(/[&<>"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[char] || char));
+  const table = rows.map(([label, value]) => `<tr><th>${esc(label)}</th><td>${esc(value)}</td></tr>`).join("");
+  const page = window.open("", "_blank", "noopener,noreferrer,width=900,height=1000");
+  if (!page) { window.alert("El navegador bloqueó la ventana del certificado. Permite las ventanas emergentes e inténtalo de nuevo."); return; }
+  page.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Certificado ${esc(certificate.certificateId)}</title><style>
+  @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#172b42;margin:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sheet{position:relative;min-height:265mm;border:1px solid #d7e0e9;padding:18mm 15mm 13mm;overflow:hidden}
+  .watermark{position:absolute;width:118mm;height:auto;left:50%;top:50%;transform:translate(-50%,-50%);opacity:.075;z-index:0}
+  .content{position:relative;z-index:1}.masthead{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:3px solid #173f70;padding-bottom:12px}
+  .logo{width:83mm;height:auto}.issuer{text-align:right;font-size:10px;line-height:1.6;color:#334c65}.issuer strong{display:block;font-size:12px;color:#123c72}
+  .kicker{margin:20px 0 5px;text-align:center;text-transform:uppercase;letter-spacing:3px;font-size:9px;font-weight:700;color:#65788d}
+  h1{text-align:center;font-size:25px;letter-spacing:1px;margin:0;color:#123c72}.subtitle{text-align:center;font-size:11px;color:#607287;margin:7px 0 20px}
+  .badge{margin:0 auto 20px;width:max-content;max-width:100%;border:1px solid #b9d8c6;background:#f0f8f3;color:#236742;padding:7px 18px;border-radius:3px;font-size:10px;font-weight:bold;letter-spacing:1px}
+  table{width:100%;border-collapse:collapse;font-size:10.5px}th,td{text-align:left;padding:9px 10px;border-bottom:1px solid #dfe6ed;vertical-align:top}th{width:34%;color:#52667b;font-weight:600;background:#f4f7fa}td{font-weight:600;color:#1b3047;overflow-wrap:anywhere}
+  .key{margin:16px 0;padding:13px;border:1px dashed #9eafc0;background:#ffffffd9}.key small{display:block;color:#607287;text-transform:uppercase;letter-spacing:1px;font-size:8px;margin-bottom:6px}.key strong{font-family:Consolas,monospace;font-size:13px;overflow-wrap:anywhere}
+  .conditions{margin-top:17px;font-size:9px;line-height:1.65;color:#455a70}.conditions h2{font-size:10px;color:#123c72;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px}.conditions p{margin:4px 0}
+  .footer{margin-top:18px;padding-top:10px;border-top:1px solid #d7e0e9;display:flex;justify-content:space-between;gap:12px;font-size:8px;color:#6c7c8d}.stamp{font-weight:bold;color:#123c72}
+  .actions{display:flex;justify-content:center;gap:10px;margin:16px auto}.actions button{border:0;background:#123c72;color:#fff;padding:11px 18px;border-radius:5px;font-weight:bold;cursor:pointer}.actions .secondary{background:#e8edf2;color:#233a51}
+  @media print{.actions{display:none}.sheet{border:0;min-height:0;padding:0}.watermark{opacity:.075}}
+  </style></head><body><div class="actions"><button onclick="window.print()">Imprimir / Guardar como PDF</button><button class="secondary" onclick="window.close()">Cerrar</button></div><article class="sheet"><img class="watermark" src="/efasfreelancer-logo.svg" alt=""><div class="content">
+  <header class="masthead"><img class="logo" src="/efasfreelancer-logo.svg" alt="EFASfreelancer Soluciones Digitales"><div class="issuer"><strong>EFASfreelancer</strong>Soluciones Digitales<br>RIF: V-13313521-5<br>Empresa otorgante de la licencia</div></header>
+  <p class="kicker">Documento oficial de autorización</p><h1>CERTIFICADO DE LICENCIA</h1><p class="subtitle">Constancia de emisión y condiciones de uso del software licenciado</p><div class="badge">LICENCIA EMITIDA</div>
+  <table>${table}</table><div class="key"><small>Clave de licencia · información confidencial</small><strong>${esc(certificate.licenseKey)}</strong></div>
+  <section class="conditions"><h2>Activación, conectividad y seguridad</h2><p>La instalación y activación inicial requieren conexión a Internet. Tras la activación, el software podrá operar sin conexión durante el periodo autorizado indicado en este certificado.</p><p>Al recuperar la conectividad, el sistema podrá revalidar el estado de la licencia. Si el servidor confirma su revocación, el acceso quedará bloqueado. Un equipo desconectado no recibe cambios de estado hasta que vuelva a conectarse.</p><h2>Condiciones comerciales</h2><p><strong>Soporte:</strong> ${esc(terms.supportTerms || "Según el acuerdo comercial con el proveedor.")}</p><p><strong>Actualizaciones:</strong> ${esc(terms.updateTerms || "Según el acuerdo comercial con el proveedor.")}</p><p><strong>Terminales adicionales:</strong> ${esc(terms.extraActivationTerms || "Requieren autorización y extensión de licencia.")}</p><p><strong>Términos:</strong> ${esc(terms.terms || "El uso está sujeto a la licencia concedida y a las políticas de activación y revocación.")}</p><p>Conserve este certificado y mantenga la clave protegida. Para cambiar el equipo o solicitar soporte, contacte con la empresa otorgante.</p></section>
+  <footer class="footer"><span>EFASfreelancer Soluciones Digitales · RIF V-13313521-5</span><span class="stamp">CERTIFICADO DE LICENCIA · ${esc(certificate.certificateId)}</span></footer></div></article></body></html>`);
+  page.document.close();
 }
-
 function text(value: unknown) {
   return value === null || value === undefined || value === "" ? "—" : String(value);
 }

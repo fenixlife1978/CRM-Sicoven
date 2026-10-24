@@ -21,6 +21,7 @@ function downloadCertificate(certificate: Record<string, unknown>) {
   const terms = (certificate.terms && typeof certificate.terms === "object" ? certificate.terms : {}) as Record<string, unknown>;
   const rows: [string, unknown][] = [
     ["N.º de certificado", certificate.certificateId],
+    ["Fecha de emisión", certificate.issuedAt ? new Date(String(certificate.issuedAt)).toLocaleDateString("es-VE") : new Date().toLocaleDateString("es-VE")],
     ["Titular de la licencia", certificate.customerName],
     ["Correo electrónico", certificate.customerEmail || "No indicado"],
     ["Teléfono", certificate.customerPhone || "No indicado"],
@@ -30,7 +31,6 @@ function downloadCertificate(certificate: Record<string, unknown>) {
     ["Equipos autorizados", certificate.maxActivations ?? 1],
     ["Inicio de vigencia", certificate.startsAt || "Desde la activación"],
     ["Vencimiento", certificate.expiresAt || "Vitalicia — sin fecha de expiración"],
-    ["Periodo máximo offline", String(certificate.offlineDays ?? 7) + " días"]
   ];
   const esc = (value: unknown) => String(value ?? "—").replace(/[&<>"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[char] || char));
   const table = rows.map(([label, value]) => `<tr><th>${esc(label)}</th><td>${esc(value)}</td></tr>`).join("");
@@ -55,7 +55,7 @@ function downloadCertificate(certificate: Record<string, unknown>) {
   <header class="masthead"><img class="logo" src="/efasfreelancer-logo.svg" alt="EFASfreelancer Soluciones Digitales"><div class="issuer"><strong>EFASfreelancer</strong>Soluciones Digitales<br>RIF: V-13313521-5<br>Empresa otorgante de la licencia</div></header>
   <p class="kicker">Documento oficial de autorización</p><h1>CERTIFICADO DE LICENCIA</h1><p class="subtitle">Constancia de emisión y condiciones de uso del software licenciado</p><div class="badge">LICENCIA EMITIDA</div>
   <table>${table}</table><div class="key"><small>Clave de licencia · información confidencial</small><strong>${esc(certificate.licenseKey)}</strong></div>
-  <section class="conditions"><h2>Activación, conectividad y seguridad</h2><p>La instalación y activación inicial requieren conexión a Internet. Tras la activación, el software podrá operar sin conexión durante el periodo autorizado indicado en este certificado.</p><p>Al recuperar la conectividad, el sistema podrá revalidar el estado de la licencia. Si el servidor confirma su revocación, el acceso quedará bloqueado. Un equipo desconectado no recibe cambios de estado hasta que vuelva a conectarse.</p><h2>Condiciones comerciales</h2><p><strong>Soporte:</strong> ${esc(terms.supportTerms || "Según el acuerdo comercial con el proveedor.")}</p><p><strong>Actualizaciones:</strong> ${esc(terms.updateTerms || "Según el acuerdo comercial con el proveedor.")}</p><p><strong>Terminales adicionales:</strong> ${esc(terms.extraActivationTerms || "Requieren autorización y extensión de licencia.")}</p><p><strong>Términos:</strong> ${esc(terms.terms || "El uso está sujeto a la licencia concedida y a las políticas de activación y revocación.")}</p><p>Conserve este certificado y mantenga la clave protegida. Para cambiar el equipo o solicitar soporte, contacte con la empresa otorgante.</p></section>
+  <section class="conditions"><h2>1. Activación y validación</h2><p>La activación inicial requiere conexión a Internet y validación en línea con los servidores autorizados de EFASfreelancer Soluciones Digitales. No se admite activación sin conexión. El usuario debe disponer de conectividad para completar el proceso de activación.</p><h2>2. Alcance de la autorización</h2><p>Esta licencia autoriza el uso del producto identificado en este certificado, para el titular indicado y dentro del número de equipos o terminales expresamente autorizado. La vigencia y las capacidades concedidas se rigen por los datos de este documento y por el plan contratado.</p><h2>3. Uso y custodia</h2><p>La clave de licencia es confidencial y debe conservarse de forma segura. El titular es responsable de su custodia y de impedir su uso no autorizado. No se permite copiar, distribuir, revender, ceder ni utilizar la licencia fuera del alcance contratado sin autorización escrita de la empresa otorgante.</p><h2>4. Cambios de equipo y ampliaciones</h2><p>El cambio de equipo, traslado de instalación o ampliación de terminales requiere autorización previa de EFASfreelancer. Las capacidades adicionales solo quedan autorizadas cuando el otorgante las registre en la licencia correspondiente.</p><h2>5. Condiciones comerciales</h2><p><strong>Soporte:</strong> ${esc(terms.supportTerms || "Según el plan contratado y el acuerdo comercial.")}</p><p><strong>Actualizaciones:</strong> ${esc(terms.updateTerms || "Según el plan contratado y el acuerdo comercial.")}</p><p><strong>Terminales adicionales:</strong> ${esc(terms.extraActivationTerms || "Requieren autorización y ampliación formal de la licencia.")}</p><p><strong>Condiciones particulares:</strong> ${esc(terms.terms || "La licencia se limita al producto, titular, vigencia y capacidad autorizada que figuran en este certificado.")}</p><h2>6. Conservación del certificado</h2><p>Conserve este documento como comprobante de autorización y mantenga la clave protegida. Para consultas, soporte, traslado de equipo o ampliaciones, contacte con EFASfreelancer Soluciones Digitales.</p></section>
   <footer class="footer"><span>EFASfreelancer Soluciones Digitales · RIF V-13313521-5</span><span class="stamp">CERTIFICADO DE LICENCIA · ${esc(certificate.certificateId)}</span></footer></div></article></body></html>`);
   page.document.close();
 }
@@ -77,6 +77,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
   const [licenseTypes, setLicenseTypes] = useState<RecordItem[]>([]);
   const [certificate, setCertificate] = useState<Record<string, unknown> | null>(null);
   const [editingPlan, setEditingPlan] = useState<RecordItem | null>(null);
+  const [selectedLicenseId, setSelectedLicenseId] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -128,7 +129,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     const data = Object.fromEntries(new FormData(event.currentTarget).entries());
     const planData = {
       ...data, id: editingPlan?.id, durationDays: data.durationDays === "" ? null : Number(data.durationDays),
-      maxActivations: Number(data.maxActivations), offlineDays: Number(data.offlineDays),
+      maxActivations: Number(data.maxActivations), priceAmount: Number(data.priceAmount || 0), expansionPrice: Number(data.expansionPrice || 0),
       active: editingPlan ? Number(editingPlan.active) === 1 : true
     };
     try {
@@ -145,12 +146,12 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     const active = Number(plan.active) === 1;
     const payload = {
       id: plan.id, name: plan.name, durationDays: plan.duration_days === null ? null : Number(plan.duration_days),
-      maxActivations: Number(plan.max_activations), offlineDays: Number(plan.offline_days),
+      maxActivations: Number(plan.max_activations),
       supportTerms: text(plan.support_terms) === "—" ? "" : plan.support_terms,
       updateTerms: text(plan.update_terms) === "—" ? "" : plan.update_terms,
       extraActivationTerms: text(plan.extra_activation_terms) === "—" ? "" : plan.extra_activation_terms,
       terms: text(plan.terms) === "—" ? "" : plan.terms,
-      priceLabel: text(plan.price_label) === "—" ? "" : plan.price_label, active: !active
+      priceLabel: text(plan.price_label) === "—" ? "" : plan.price_label, billingCycle: plan.billing_cycle || "once", priceAmount: Number(plan.price_amount || 0), currency: plan.currency || "USD", expansionPrice: Number(plan.expansion_price || 0), expansionBillingCycle: plan.expansion_billing_cycle || "once", active: !active
     };
     try {
       const response = await fetch("/api/license-types", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -159,6 +160,20 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       setNotice(!active ? "Tipo de licencia activado." : "Tipo de licencia desactivado; no se podrá usar en nuevas emisiones.");
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Error al cambiar el estado."); }
+  }
+
+  async function submitCapacity(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError(""); setNotice("");
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const payload = { ...data, licenseId: selectedLicenseId, newLimit: Number(data.newLimit), unitPrice: Number(data.unitPrice || 0) };
+    try {
+      const response = await fetch("/api/license-capacity", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "No se pudo ampliar la licencia.");
+      setNotice(result.paymentStatus === "pending" ? `Ampliación registrada. Cargo pendiente: ${result.amount} ${result.currency}. La licencia conserva su identificador.` : "Ampliación administrativa aplicada sin cargo.");
+      setSelectedLicenseId(""); await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Error al ampliar la licencia."); }
+    finally { setBusy(false); }
   }
 
   async function revoke(id: string) {
@@ -190,22 +205,36 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       <label>Tipo de licencia<select name="licenseTypeId" required defaultValue=""><option value="" disabled>Seleccionar plan</option>{licenseTypes.filter(t => Number(t.active) === 1).map(t => <option key={text(t.id)} value={text(t.id)}>{text(t.name)} · {t.duration_days === null ? "Vitalicia" : `${text(t.duration_days)} días`} · {text(t.max_activations)} equipo(s)</option>)}</select></label>
       <label>Inicio de vigencia<input name="startsAt" type="date" /></label><p className="muted">La duración y los equipos autorizados los determina el tipo de licencia. La vigencia vitalicia se guarda sin fecha de vencimiento.</p><button disabled={busy}>{busy ? "Emitiendo…" : "Emitir licencia"}</button>
     </form>{issuedKey && <div className="key-box"><strong>Clave de licencia (cópiala ahora)</strong><code>{issuedKey}</code><button type="button" className="secondary" onClick={() => void navigator.clipboard.writeText(issuedKey)}>Copiar clave</button></div>}
-    {certificate && <div className="key-box"><div><strong>Certificado listo para descargar</strong><p className="muted">Incluye clave, vigencia, equipos, política offline, condiciones e instrucciones de instalación.</p></div><button type="button" onClick={() => downloadCertificate(certificate)}>Descargar certificado PDF</button></div>}</section>
-    <section className="panel"><h2>{editingPlan ? "Editar tipo de licencia" : "Crear tipo de licencia"}</h2><p className="muted">La duración vacía significa vitalicia. El plazo offline limita cuánto puede operar un equipo sin revalidar la licencia.</p>
+    {certificate && <div className="key-box"><div><strong>Certificado listo para descargar</strong><p className="muted">Incluye identificación de la licencia, titular, producto, vigencia, capacidad autorizada, clave confidencial y condiciones de uso.</p></div><button type="button" onClick={() => downloadCertificate(certificate)}>Descargar certificado PDF</button></div>}</section>
+    <section className="panel"><h2>{editingPlan ? "Editar tipo de licencia" : "Crear tipo de licencia"}</h2><p className="muted">La duración vacía significa vitalicia. La activación de todas las licencias requiere conexión a Internet.</p>
       <form onSubmit={submitPlan} className="form-grid">
         <label>Nombre del plan<input name="name" required defaultValue={text(editingPlan?.name) === "—" ? "" : text(editingPlan?.name)} placeholder="Ej. Perpetua Profesional" /></label>
         <label>Duración en días (vacío = vitalicia)<input name="durationDays" type="number" min="1" max="36500" defaultValue={editingPlan?.duration_days === null || editingPlan?.duration_days === undefined ? "" : text(editingPlan.duration_days)} /></label>
         <label>Equipos/terminales autorizados<input name="maxActivations" type="number" min="1" max="100" defaultValue={text(editingPlan?.max_activations) === "—" ? "1" : text(editingPlan?.max_activations)} required /></label>
-        <label>Días offline antes de exigir revalidación<input name="offlineDays" type="number" min="1" max="30" defaultValue={text(editingPlan?.offline_days) === "—" ? "7" : text(editingPlan?.offline_days)} required /></label>
         <label>Precio o referencia comercial<input name="priceLabel" defaultValue={text(editingPlan?.price_label) === "—" ? "" : text(editingPlan?.price_label)} /></label>
+        <label>Precio de licencia<input name="priceAmount" type="number" min="0" step="0.01" defaultValue={text(editingPlan?.price_amount) === "—" ? "0" : text(editingPlan?.price_amount)} /></label>
+        <label>Periodicidad de licencia<select name="billingCycle" defaultValue={text(editingPlan?.billing_cycle) === "—" ? "once" : text(editingPlan?.billing_cycle)}><option value="once">Pago único / vitalicia</option><option value="monthly">Mensual</option><option value="yearly">Anual</option></select></label>
+        <label>Moneda (ISO 4217)<input name="currency" maxLength={3} defaultValue={text(editingPlan?.currency) === "—" ? "USD" : text(editingPlan?.currency)} /></label>
+        <label>Precio por unidad de ampliación<input name="expansionPrice" type="number" min="0" step="0.01" defaultValue={text(editingPlan?.expansion_price) === "—" ? "0" : text(editingPlan?.expansion_price)} /></label>
+        <label>Periodicidad de ampliación<select name="expansionBillingCycle" defaultValue={text(editingPlan?.expansion_billing_cycle) === "—" ? "once" : text(editingPlan?.expansion_billing_cycle)}><option value="once">Pago único</option><option value="monthly">Mensual recurrente</option><option value="yearly">Anual recurrente</option></select></label>
         <label>Condiciones de soporte<input name="supportTerms" defaultValue={text(editingPlan?.support_terms) === "—" ? "" : text(editingPlan?.support_terms)} /></label>
         <label>Actualizaciones<input name="updateTerms" defaultValue={text(editingPlan?.update_terms) === "—" ? "" : text(editingPlan?.update_terms)} /></label>
         <label>Terminales adicionales<input name="extraActivationTerms" defaultValue={text(editingPlan?.extra_activation_terms) === "—" ? "" : text(editingPlan?.extra_activation_terms)} placeholder="Requiere extensión de licencia…" /></label>
         <label className="wide">Términos de uso<textarea name="terms" rows={3} defaultValue={text(editingPlan?.terms) === "—" ? "" : text(editingPlan?.terms)} /></label>
         <button disabled={busy}>{busy ? "Guardando…" : editingPlan ? "Guardar cambios" : "Crear tipo de licencia"}</button>{editingPlan && <button type="button" className="secondary" onClick={() => setEditingPlan(null)}>Cancelar edición</button>}
       </form>
-      {licenseTypes.length > 0 && <div className="table-wrap"><table><thead><tr><th>Plan</th><th>Vigencia</th><th>Equipos</th><th>Offline</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{licenseTypes.map(t => <tr key={text(t.id)}><td>{text(t.name)}</td><td>{t.duration_days === null ? "Vitalicia" : `${text(t.duration_days)} días`}</td><td>{text(t.max_activations)}</td><td>{text(t.offline_days)} días</td><td>{Number(t.active) === 1 ? "Activo" : "Inactivo"}</td><td><button type="button" className="secondary" onClick={() => setEditingPlan(t)}>Editar</button> <button type="button" className="danger" onClick={() => void togglePlan(t)}>{Number(t.active) === 1 ? "Desactivar" : "Activar"}</button></td></tr>)}</tbody></table></div>}
+      {licenseTypes.length > 0 && <div className="table-wrap"><table><thead><tr><th>Plan</th><th>Vigencia</th><th>Equipos</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{licenseTypes.map(t => <tr key={text(t.id)}><td>{text(t.name)}</td><td>{t.duration_days === null ? "Vitalicia" : `${text(t.duration_days)} días`}</td><td>{text(t.max_activations)}</td><td>{text(t.price_amount)} {text(t.currency)} / {text(t.billing_cycle)}</td><td>{Number(t.active) === 1 ? "Activo" : "Inactivo"}</td><td><button type="button" className="secondary" onClick={() => setEditingPlan(t)}>Editar</button> <button type="button" className="danger" onClick={() => void togglePlan(t)}>{Number(t.active) === 1 ? "Desactivar" : "Activar"}</button></td></tr>)}</tbody></table></div>}
     </section></>}
+    {kind === "licencias" && selectedLicenseId && <section className="panel"><h2>Ampliar capacidad de licencia</h2><p className="muted">Licencia: {selectedLicenseId}. El identificador no cambia. Las ampliaciones solo aumentan el límite y quedan auditadas.</p><form className="form-grid" onSubmit={submitCapacity}>
+      <label>Capacidad<select name="capacityKind" defaultValue="devices"><option value="devices">Equipos/dispositivos</option><option value="pos_terminals">Terminales POS</option><option value="users">Usuarios</option><option value="branches">Sucursales</option></select></label>
+      <label>Nuevo límite total<input name="newLimit" type="number" min="1" max="10000" required /></label>
+      <label>Modalidad<select name="mode" defaultValue="administrative"><option value="administrative">Administrativa / cortesía / cobro externo</option><option value="paid">Comercial con cargo registrado en CRM</option></select></label>
+      <label>Precio por unidad adicional<input name="unitPrice" type="number" min="0" step="0.01" defaultValue="0" /></label>
+      <label>Periodicidad del cargo<select name="billingCycle" defaultValue="once"><option value="once">Pago único</option><option value="monthly">Mensual recurrente</option><option value="yearly">Anual recurrente</option></select></label>
+      <label>Moneda<input name="currency" defaultValue="USD" maxLength={3} /></label>
+      <label className="wide">Motivo / referencia de pago<textarea name="notes" rows={2} /></label>
+      <button disabled={busy}>{busy ? "Procesando…" : "Registrar ampliación"}</button><button type="button" className="secondary" onClick={() => setSelectedLicenseId("")}>Cancelar</button>
+    </form></section>}
     {notice && <p className="notice" role="status">{notice}</p>}{error && <p className="error" role="alert">{error}</p>}
     {kind === "clientes" && <div className="search"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar por nombre, cédula, RIF o correo…" /><button className="secondary" onClick={() => void load()}>Buscar</button></div>}
     <section className="panel"><div className="list-heading"><h2>Registros</h2><span>{loading ? "Cargando…" : `${items.length} registros mostrados`}</span></div>
@@ -213,7 +242,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       <div className="table-wrap"><table><thead><tr>{(kind === "clientes" ? ["Nombre","Tipo","Documento","Correo","Estado"] : kind === "productos" ? ["Producto","Edición","Versión","Licencias","Estado"] : kind === "licencias" ? ["Cliente","Producto","Clave","Estado","Equipos"] : ["Cliente","Producto","Equipo","Estado","Activación","Acción"]).map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{items.map((item,i) => <tr key={text(item.id) || i}>
         {kind === "clientes" && <><td>{text(item.display_name)}</td><td>{text(item.type) === "person" ? "Persona" : "Empresa"}</td><td>{text(item.identity_document || item.tax_id)}</td><td>{text(item.email)}</td><td>{text(item.status)}</td></>}
         {kind === "productos" && <><td>{text(item.name)}</td><td>{text(item.edition)}</td><td>{text(item.version)}</td><td>{text(item.license_count)}</td><td>{text(item.status)}</td></>}
-        {kind === "licencias" && <><td>{text(item.customer_name)}</td><td>{text(item.product_name)}</td><td>{text(item.license_key_hint)}</td><td>{text(item.status)}</td><td>{text(item.active_activations)} / {text(item.max_activations)}</td></>}
+        {kind === "licencias" && <><td>{text(item.customer_name)}</td><td>{text(item.product_name)}</td><td>{text(item.license_key_hint)}</td><td>{text(item.status)}</td><td>{text(item.active_activations)} / {text(item.max_activations)} <button type="button" className="secondary" onClick={() => setSelectedLicenseId(text(item.id))}>Ampliar</button></td></>}
         {kind === "activaciones" && <><td>{text(item.customer_name)}</td><td>{text(item.product_name)}</td><td>{text(item.device_label || item.installation_id)}</td><td>{text(item.status)}</td><td>{text(item.activated_at)}</td><td>{item.status === "active" ? <button className="danger" onClick={() => void revoke(text(item.id))}>Revocar</button> : "—"}</td></>}
       </tr>)}</tbody></table></div>}
     </section>

@@ -16,7 +16,7 @@ Sistema comercializado (SICOVEN u otro producto autorizado), edición y versión
 
 ## License
 
-Cliente, producto, clave/token hasheado, estado, fechas, política de activaciones y registro de revocación. Las claves secretas se muestran como máximo al emitirlas; no se guardan en claro si no es imprescindible.
+Cliente, producto, clave hasheada, estado, fechas, política de activaciones y registro de revocación administrativa. Las claves secretas se muestran como máximo al emitirlas; no se guardan en claro si no es imprescindible.
 
 ## Activation
 
@@ -32,4 +32,4 @@ Licencia, identificador de instalación/equipo, fecha de alta y última validaci
 
 ## Seguridad requerida antes de producción
 
-Autenticación y autorización en servidor, protección contra fuerza bruta, validación de entrada, registro de auditoría, gestión segura de secretos, límites atómicos de activación, política de expiración offline y pruebas de restauración de datos.
+Autenticación y autorización en servidor, protección contra fuerza bruta, validación de entrada, registro de auditoría, gestión segura de secretos, límites atómicos de activación exclusivamente en línea y pruebas de restauración de datos.

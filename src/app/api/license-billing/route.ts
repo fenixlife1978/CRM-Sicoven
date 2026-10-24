@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     if (cycle === "yearly") end.setFullYear(end.getFullYear()+1);
     const id = randomUUID();
     await db.execute({
-      sql: "INSERT INTO license_billing_records (id,license_id,record_type,amount,currency,billing_cycle,period_start,period_end,due_at,status,description,created_by) VALUES (?,?, 'adjustment',?,?,?,?,?,'pending',?,?,?)",
+      sql: "INSERT INTO license_billing_records (id,license_id,record_type,amount,currency,billing_cycle,period_start,period_end,due_at,status,description,created_by) VALUES (?,?, 'adjustment',?,?,?,?,?,?,'pending',?,?)",
       args: [id,licenseId,amount,currency,cycle,now.toISOString(),cycle === "once" ? null : end.toISOString(),now.toISOString(),description,session.sub]
     });
     await db.execute({ sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),session.sub,"billing_record_created","billing_record",id,JSON.stringify({licenseId,amount,currency,cycle})] });

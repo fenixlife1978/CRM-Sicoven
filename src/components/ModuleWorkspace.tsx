@@ -31,6 +31,7 @@ function downloadCertificate(certificate: Record<string, unknown>) {
     ["Equipos autorizados", certificate.maxActivations ?? 1],
     ["Inicio de vigencia", certificate.startsAt || "Desde la activación"],
     ["Vencimiento", certificate.expiresAt || "Vitalicia — sin fecha de expiración"],
+    ...(certificate.replacementFee !== undefined ? [["Costo de reposición pagado", `${certificate.replacementFee} ${certificate.replacementCurrency || "USD"}`] as [string, unknown]] : []),
   ];
   const esc = (value: unknown) => String(value ?? "—").replace(/[&<>"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[char] || char));
   const table = rows.map(([label, value]) => `<tr><th>${esc(label)}</th><td>${esc(value)}</td></tr>`).join("");
@@ -177,14 +178,14 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
   }
 
   async function replaceLicense(id: string) {
-    const feeInput = window.prompt("Costo módico de reposición fijado por el distribuidor (USD). Introduce 0 solo si se autorizó sin cargo:", "10");
+    const feeInput = window.prompt("Costo módico de reposición fijado por el distribuidor y ya cobrado (USD). Introduce 0 solo si se autorizó sin cargo:", "10");
     if (feeInput === null) return;
     const fee = Number(feeInput.trim().replace(",", "."));
     if (!Number.isFinite(fee) || fee < 0 || fee > 1000000) { setError("Introduce un importe de reposición válido."); return; }
-    if (!window.confirm("Se emitirá una clave nueva y la licencia anterior quedará automáticamente revocada junto con todas sus activaciones. ¿Confirmas que el cliente solicitó reposición por formateo o sustitución del equipo?")) return;
+    if (!window.confirm(`Confirma que el cliente solicitó reposición por formateo/sustitución y que el importe de ${fee.toFixed(2)} USD ya fue cobrado o autorizado sin cargo. Se emitirá una clave nueva y la licencia anterior quedará automáticamente revocada junto con todas sus activaciones.`)) return;
     setBusy(true); setError(""); setNotice(""); setIssuedKey(""); setCertificate(null);
     try {
-      const response = await fetch("/api/licenses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "replace-after-format", licenseId: id, replacementFee: fee, currency: "USD", reason: "Reposición solicitada por formateo o sustitución del equipo" }) });
+      const response = await fetch("/api/licenses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "replace-after-format", licenseId: id, replacementFee: fee, currency: "USD", feePaid: true, reason: "Reposición solicitada por formateo o sustitución del equipo" }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "No se pudo reponer la licencia.");
       setIssuedKey(String(result.licenseKey || ""));

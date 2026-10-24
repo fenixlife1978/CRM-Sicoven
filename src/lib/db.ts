@@ -79,4 +79,42 @@ export async function ensureSchema() {
   if (!existingColumns.has("license_terms_json")) migrations.push("ALTER TABLE licenses ADD COLUMN license_terms_json TEXT");
   if (!existingColumns.has("offline_days")) migrations.push("ALTER TABLE licenses ADD COLUMN offline_days INTEGER NOT NULL DEFAULT 7");
   for (const sql of migrations) await db.execute(sql);
+
+  const planColumns = await db.execute("PRAGMA table_info(license_types)");
+  const existingPlanColumns = new Set(planColumns.rows.map((column) => String(column.name)));
+  if (!existingPlanColumns.has("billing_cycle")) await db.execute("ALTER TABLE license_types ADD COLUMN billing_cycle TEXT NOT NULL DEFAULT 'once'");
+  if (!existingPlanColumns.has("price_amount")) await db.execute("ALTER TABLE license_types ADD COLUMN price_amount REAL NOT NULL DEFAULT 0");
+  if (!existingPlanColumns.has("currency")) await db.execute("ALTER TABLE license_types ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD'");
+  if (!existingPlanColumns.has("expansion_price")) await db.execute("ALTER TABLE license_types ADD COLUMN expansion_price REAL NOT NULL DEFAULT 0");
+  if (!existingPlanColumns.has("expansion_billing_cycle")) await db.execute("ALTER TABLE license_types ADD COLUMN expansion_billing_cycle TEXT NOT NULL DEFAULT 'once'");
+
+  const licenseBillingColumns = await db.execute("PRAGMA table_info(licenses)");
+  const existingBillingColumns = new Set(licenseBillingColumns.rows.map((column) => String(column.name)));
+  if (!existingBillingColumns.has("billing_cycle")) await db.execute("ALTER TABLE licenses ADD COLUMN billing_cycle TEXT NOT NULL DEFAULT 'once'");
+  if (!existingBillingColumns.has("billing_amount")) await db.execute("ALTER TABLE licenses ADD COLUMN billing_amount REAL NOT NULL DEFAULT 0");
+  if (!existingBillingColumns.has("currency")) await db.execute("ALTER TABLE licenses ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD'");
+  if (!existingBillingColumns.has("next_billing_at")) await db.execute("ALTER TABLE licenses ADD COLUMN next_billing_at TEXT");
+
+  await db.execute(`CREATE TABLE IF NOT EXISTS license_capacity_changes (
+    id TEXT PRIMARY KEY, license_id TEXT NOT NULL REFERENCES licenses(id),
+    capacity_kind TEXT NOT NULL CHECK(capacity_kind IN ('devices','pos_terminals','users','branches')),
+    previous_limit INTEGER NOT NULL, new_limit INTEGER NOT NULL,
+    mode TEXT NOT NULL CHECK(mode IN ('administrative','paid')),
+    billing_cycle TEXT NOT NULL DEFAULT 'once' CHECK(billing_cycle IN ('once','monthly','yearly')),
+    unit_price REAL NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'USD',
+    payment_status TEXT NOT NULL DEFAULT 'not_required' CHECK(payment_status IN ('not_required','pending','paid','waived')),
+    notes TEXT, created_by TEXT REFERENCES crm_users(id),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS license_billing_records (
+    id TEXT PRIMARY KEY, license_id TEXT NOT NULL REFERENCES licenses(id),
+    record_type TEXT NOT NULL CHECK(record_type IN ('initial','renewal','capacity_expansion','adjustment')),
+    amount REAL NOT NULL, currency TEXT NOT NULL DEFAULT 'USD',
+    billing_cycle TEXT NOT NULL CHECK(billing_cycle IN ('once','monthly','yearly')),
+    period_start TEXT, period_end TEXT, due_at TEXT, paid_at TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','paid','void','overdue')),
+    description TEXT, created_by TEXT REFERENCES crm_users(id),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+
 }

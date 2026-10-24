@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       const fee = Number(data.replacementFee);
       const currency = typeof data.currency === "string" && /^[A-Z]{3}$/.test(data.currency) ? data.currency : "USD";
       const reason = typeof data.reason === "string" ? data.reason.trim().slice(0, 300) : "Reinstalación por formateo o sustitución de equipo";
-      if (!oldLicenseId || !Number.isFinite(fee) || fee < 0 || fee > 1000000) {
+      if (!oldLicenseId || !Number.isFinite(fee) || fee < 0 || fee > 1000000 || data.feePaid !== true) {
         return NextResponse.json({ error: "Licencia original e importe de reposición válido son obligatorios." }, { status: 400 });
       }
       const db = getDb();
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
           FROM licenses l JOIN customers c ON c.id=l.customer_id JOIN products p ON p.id=l.product_id WHERE l.id=? LIMIT 1`, args: [oldLicenseId] });
         const old = found.rows[0];
         if (!old) { await tx.rollback(); return NextResponse.json({ error: "No se encontró la licencia original." }, { status: 404 }); }
-        if (String(old.status) === "revoked") { await tx.rollback(); return NextResponse.json({ error: "La licencia original ya está revocada; no puede reponerse nuevamente." }, { status: 409 }); }
+        if (["revoked","expired"].includes(String(old.status))) { await tx.rollback(); return NextResponse.json({ error: "La licencia original está revocada o vencida; no puede reponerse." }, { status: 409 }); }
         const newId = randomUUID();
         const rawKey = `SIC-${randomBytes(4).toString("hex").toUpperCase()}-${randomBytes(4).toString("hex").toUpperCase()}-${randomBytes(4).toString("hex").toUpperCase()}`;
         const keyHash = createHash("sha256").update(rawKey).digest("hex");
@@ -63,8 +63,8 @@ export async function POST(request: NextRequest) {
         await tx.execute({ sql: "UPDATE licenses SET status='revoked' WHERE id=? AND status<>'revoked'", args: [oldLicenseId] });
         await tx.execute({ sql: "UPDATE activations SET status='revoked',revoked_at=CURRENT_TIMESTAMP WHERE license_id=? AND status='active'", args: [oldLicenseId] });
         if (fee > 0) {
-          await tx.execute({ sql: "INSERT INTO license_billing_records (id,license_id,record_type,amount,currency,billing_cycle,period_start,due_at,status,description,created_by) VALUES (?,?, 'adjustment',?,?, 'once',?,?, 'pending',?,?)",
-            args: [randomUUID(),newId,fee,currency,issuedAt,issuedAt,`Reposición de licencia por formateo/cambio de equipo. ${reason}`,session.sub] });
+          await tx.execute({ sql: "INSERT INTO license_billing_records (id,license_id,record_type,amount,currency,billing_cycle,period_start,period_end,due_at,paid_at,status,description,created_by) VALUES (?,?, 'adjustment',?,?, 'once',?,?,?,CURRENT_TIMESTAMP,'paid',?,?)",
+            args: [randomUUID(),newId,fee,currency,issuedAt,null,issuedAt,`Reposición pagada de licencia por formateo/cambio de equipo. ${reason}`,session.sub] });
         }
         await tx.execute({ sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",
           args: [randomUUID(),session.sub,"license_replaced_after_format","license",newId,JSON.stringify({oldLicenseId,newLicenseId:newId,fee,currency,reason,oldLicenseRevoked:true})] });

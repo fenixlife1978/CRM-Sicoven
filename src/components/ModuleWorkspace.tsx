@@ -77,6 +77,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
   const [licenseTypes, setLicenseTypes] = useState<RecordItem[]>([]);
   const [certificate, setCertificate] = useState<Record<string, unknown> | null>(null);
   const [editingPlan, setEditingPlan] = useState<RecordItem | null>(null);
+  const [selectedLicenseId, setSelectedLicenseId] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -161,6 +162,20 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     } catch (e) { setError(e instanceof Error ? e.message : "Error al cambiar el estado."); }
   }
 
+  async function submitCapacity(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError(""); setNotice("");
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const payload = { ...data, licenseId: selectedLicenseId, newLimit: Number(data.newLimit), unitPrice: Number(data.unitPrice || 0) };
+    try {
+      const response = await fetch("/api/license-capacity", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "No se pudo ampliar la licencia.");
+      setNotice(result.paymentStatus === "pending" ? `Ampliación registrada. Cargo pendiente: ${result.amount} ${result.currency}. La licencia conserva su identificador.` : "Ampliación administrativa aplicada sin cargo.");
+      setSelectedLicenseId(""); await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Error al ampliar la licencia."); }
+    finally { setBusy(false); }
+  }
+
   async function revoke(id: string) {
     if (!window.confirm("¿Revocar definitivamente esta activación?")) return;
     setError(""); setNotice("");
@@ -211,6 +226,16 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       </form>
       {licenseTypes.length > 0 && <div className="table-wrap"><table><thead><tr><th>Plan</th><th>Vigencia</th><th>Equipos</th><th>Offline</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{licenseTypes.map(t => <tr key={text(t.id)}><td>{text(t.name)}</td><td>{t.duration_days === null ? "Vitalicia" : `${text(t.duration_days)} días`}</td><td>{text(t.max_activations)}</td><td>{Number(t.offline_days) === 0 ? "Ilimitado" : `${text(t.offline_days)} días`}</td><td>{text(t.price_amount)} {text(t.currency)} / {text(t.billing_cycle)}</td><td>{Number(t.active) === 1 ? "Activo" : "Inactivo"}</td><td><button type="button" className="secondary" onClick={() => setEditingPlan(t)}>Editar</button> <button type="button" className="danger" onClick={() => void togglePlan(t)}>{Number(t.active) === 1 ? "Desactivar" : "Activar"}</button></td></tr>)}</tbody></table></div>}
     </section></>}
+    {kind === "licencias" && selectedLicenseId && <section className="panel"><h2>Ampliar capacidad de licencia</h2><p className="muted">Licencia: {selectedLicenseId}. El identificador no cambia. Las ampliaciones solo aumentan el límite y quedan auditadas.</p><form className="form-grid" onSubmit={submitCapacity}>
+      <label>Capacidad<select name="capacityKind" defaultValue="devices"><option value="devices">Equipos/dispositivos</option><option value="pos_terminals">Terminales POS</option><option value="users">Usuarios</option><option value="branches">Sucursales</option></select></label>
+      <label>Nuevo límite total<input name="newLimit" type="number" min="1" max="10000" required /></label>
+      <label>Modalidad<select name="mode" defaultValue="administrative"><option value="administrative">Administrativa / cortesía / cobro externo</option><option value="paid">Comercial con cargo registrado en CRM</option></select></label>
+      <label>Precio por unidad adicional<input name="unitPrice" type="number" min="0" step="0.01" defaultValue="0" /></label>
+      <label>Periodicidad del cargo<select name="billingCycle" defaultValue="once"><option value="once">Pago único</option><option value="monthly">Mensual recurrente</option><option value="yearly">Anual recurrente</option></select></label>
+      <label>Moneda<input name="currency" defaultValue="USD" maxLength={3} /></label>
+      <label className="wide">Motivo / referencia de pago<textarea name="notes" rows={2} /></label>
+      <button disabled={busy}>{busy ? "Procesando…" : "Registrar ampliación"}</button><button type="button" className="secondary" onClick={() => setSelectedLicenseId("")}>Cancelar</button>
+    </form></section>}
     {notice && <p className="notice" role="status">{notice}</p>}{error && <p className="error" role="alert">{error}</p>}
     {kind === "clientes" && <div className="search"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar por nombre, cédula, RIF o correo…" /><button className="secondary" onClick={() => void load()}>Buscar</button></div>}
     <section className="panel"><div className="list-heading"><h2>Registros</h2><span>{loading ? "Cargando…" : `${items.length} registros mostrados`}</span></div>
@@ -218,7 +243,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       <div className="table-wrap"><table><thead><tr>{(kind === "clientes" ? ["Nombre","Tipo","Documento","Correo","Estado"] : kind === "productos" ? ["Producto","Edición","Versión","Licencias","Estado"] : kind === "licencias" ? ["Cliente","Producto","Clave","Estado","Equipos"] : ["Cliente","Producto","Equipo","Estado","Activación","Acción"]).map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{items.map((item,i) => <tr key={text(item.id) || i}>
         {kind === "clientes" && <><td>{text(item.display_name)}</td><td>{text(item.type) === "person" ? "Persona" : "Empresa"}</td><td>{text(item.identity_document || item.tax_id)}</td><td>{text(item.email)}</td><td>{text(item.status)}</td></>}
         {kind === "productos" && <><td>{text(item.name)}</td><td>{text(item.edition)}</td><td>{text(item.version)}</td><td>{text(item.license_count)}</td><td>{text(item.status)}</td></>}
-        {kind === "licencias" && <><td>{text(item.customer_name)}</td><td>{text(item.product_name)}</td><td>{text(item.license_key_hint)}</td><td>{text(item.status)}</td><td>{text(item.active_activations)} / {text(item.max_activations)}</td></>}
+        {kind === "licencias" && <><td>{text(item.customer_name)}</td><td>{text(item.product_name)}</td><td>{text(item.license_key_hint)}</td><td>{text(item.status)}</td><td>{text(item.active_activations)} / {text(item.max_activations)} <button type="button" className="secondary" onClick={() => setSelectedLicenseId(text(item.id))}>Ampliar</button></td></>}
         {kind === "activaciones" && <><td>{text(item.customer_name)}</td><td>{text(item.product_name)}</td><td>{text(item.device_label || item.installation_id)}</td><td>{text(item.status)}</td><td>{text(item.activated_at)}</td><td>{item.status === "active" ? <button className="danger" onClick={() => void revoke(text(item.id))}>Revocar</button> : "—"}</td></>}
       </tr>)}</tbody></table></div>}
     </section>

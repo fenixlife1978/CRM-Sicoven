@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
       certificate: {
         certificateId: `SIC-CERT-${id.slice(0,8).toUpperCase()}`,
         issuedAt: new Date().toISOString(), licenseKey: rawKey,
-        licenseTypeName, startsAt, expiresAt, maxActivations, issuedAt: new Date().toISOString(), terms: licenseTerms,
+        licenseTypeName, startsAt, expiresAt, maxActivations, terms: licenseTerms,
         ...(details.rows[0] ?? {})
       }
     }, { status: 201 });

@@ -37,10 +37,10 @@ export default function LoginPage() {
   return (
     <main className="login-shell">
       <section className="login-card">
-        <div className="brand-mark">S</div>
-        <p className="eyebrow">CENTRO DE CONTROL</p>
-        <h1>CRM SICOVEN</h1>
-        <p className="intro">Acceso privado para la administración de clientes, productos y licencias.</p>
+        <img className="company-logo" src="/efasfreelancer-logo.svg" alt="EFASfreelancer Soluciones Digitales" />
+        <p className="eyebrow">CENTRO DE CONTROL · RIF V-13313521-5</p>
+        <h1>EFASfreelancer</h1>
+        <p className="intro">Soluciones Digitales · Administración segura de clientes, productos y licencias de software.</p>
         <form onSubmit={submit}>
           <label htmlFor="email">Correo administrativo</label>
           <input id="email" type="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} maxLength={254} required />
@@ -54,7 +54,7 @@ export default function LoginPage() {
       <style>{`
         .login-shell{min-height:100vh;display:grid;place-items:center;padding:22px;background:radial-gradient(ellipse at top,#e5edf5 0,#f4f7fb 55%)}
         .login-card{width:min(100%,420px);padding:36px;background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 18px 60px #10243a12}
-        .brand-mark{width:48px;height:48px;display:grid;place-items:center;background:#f2bd35;color:#10243a;font-weight:900;font-size:30px;transform:skew(-6deg);margin-bottom:26px}
+        .company-logo{display:block;width:100%;max-width:340px;height:auto;object-fit:contain;margin:0 auto 24px}
         .eyebrow{font-size:10px;letter-spacing:1.8px;font-weight:800;color:#9a7610;margin:0 0 9px}
         h1{font-size:27px;color:#10243a;margin:0}.intro{font-size:13px;line-height:1.7;color:#667487;margin:12px 0 26px}
         form{display:grid;gap:9px}label{font-size:12px;font-weight:700;color:#26384c;margin-top:7px}

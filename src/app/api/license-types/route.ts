@@ -13,7 +13,7 @@ function clean(value: unknown, max = 2000): string {
 function validLimits(durationDays: unknown, maxActivations: unknown, offlineDays: unknown) {
   const durationOk = durationDays === null || durationDays === "" || (Number.isInteger(Number(durationDays)) && Number(durationDays) >= 1 && Number(durationDays) <= 36500);
   return durationOk && Number.isInteger(Number(maxActivations)) && Number(maxActivations) >= 1 && Number(maxActivations) <= 100
-    && Number.isInteger(Number(offlineDays)) && Number(offlineDays) >= 1 && Number(offlineDays) <= 30;
+    && Number.isInteger(Number(offlineDays)) && Number(offlineDays) >= 0 && Number(offlineDays) <= 36500;
 }
 
 export async function GET() {
@@ -40,15 +40,21 @@ export async function POST(request: NextRequest) {
     const name = clean(data.name, 100);
     const durationDays = data.durationDays === null || data.durationDays === "" ? null : Number(data.durationDays);
     const maxActivations = Number(data.maxActivations ?? 1);
-    const offlineDays = Number(data.offlineDays ?? 7);
+    const offlineDays = Number(data.offlineDays ?? 0);
     if (!name || !validLimits(durationDays, maxActivations, offlineDays)) {
-      return NextResponse.json({ error: "Nombre, duración (vitalicia o 1–36500 días), equipos (1–100) y días offline (1–30) no válidos." }, { status: 400 });
+      return NextResponse.json({ error: "Nombre, duración (vitalicia o 1–36500 días), equipos (1–100) o periodo offline no válidos. Use 0 para operación offline sin límite temporal." }, { status: 400 });
     }
+    const billingCycle = ["once","monthly","yearly"].includes(String(data.billingCycle)) ? String(data.billingCycle) : "once";
+    const priceAmount = Number(data.priceAmount ?? 0);
+    const expansionPrice = Number(data.expansionPrice ?? 0);
+    const expansionBillingCycle = ["once","monthly","yearly"].includes(String(data.expansionBillingCycle)) ? String(data.expansionBillingCycle) : "once";
+    const currency = typeof data.currency === "string" && /^[A-Z]{3}$/.test(data.currency) ? data.currency : "USD";
+    if (!Number.isFinite(priceAmount) || priceAmount < 0 || !Number.isFinite(expansionPrice) || expansionPrice < 0) return NextResponse.json({ error: "Los precios deben ser importes no negativos." }, { status: 400 });
     const id = randomUUID();
     await getDb().execute({
-      sql: `INSERT INTO license_types (id,name,duration_days,max_activations,offline_days,support_terms,update_terms,extra_activation_terms,terms,price_label)
-            VALUES (?,?,?,?,?,?,?,?,?,?)`,
-      args: [id,name,durationDays,maxActivations,offlineDays,clean(data.supportTerms),clean(data.updateTerms),clean(data.extraActivationTerms),clean(data.terms),clean(data.priceLabel,100)]
+      sql: `INSERT INTO license_types (id,name,duration_days,max_activations,offline_days,support_terms,update_terms,extra_activation_terms,terms,price_label,billing_cycle,price_amount,currency,expansion_price,expansion_billing_cycle)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      args: [id,name,durationDays,maxActivations,offlineDays,clean(data.supportTerms),clean(data.updateTerms),clean(data.extraActivationTerms),clean(data.terms),clean(data.priceLabel,100),billingCycle,priceAmount,currency,expansionPrice,expansionBillingCycle]
     });
     await getDb().execute({
       sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",
@@ -75,12 +81,18 @@ export async function PATCH(request: NextRequest) {
     const durationDays = data.durationDays === null || data.durationDays === "" ? null : Number(data.durationDays);
     const maxActivations = Number(data.maxActivations);
     const offlineDays = Number(data.offlineDays);
-    if (!id || !name || !validLimits(durationDays, maxActivations, offlineDays) || typeof data.active !== "boolean") {
+    const billingCycle = ["once","monthly","yearly"].includes(String(data.billingCycle)) ? String(data.billingCycle) : "once";
+    const priceAmount = Number(data.priceAmount ?? 0);
+    const expansionPrice = Number(data.expansionPrice ?? 0);
+    const expansionBillingCycle = ["once","monthly","yearly"].includes(String(data.expansionBillingCycle)) ? String(data.expansionBillingCycle) : "once";
+    const currency = typeof data.currency === "string" && /^[A-Z]{3}$/.test(data.currency) ? data.currency : "USD";
+    if (!id || !name || !validLimits(durationDays, maxActivations, offlineDays) || typeof data.active !== "boolean" ||
+        !Number.isFinite(priceAmount) || priceAmount < 0 || !Number.isFinite(expansionPrice) || expansionPrice < 0) {
       return NextResponse.json({ error: "Datos de edición no válidos." }, { status: 400 });
     }
     await getDb().execute({
-      sql: `UPDATE license_types SET name=?,duration_days=?,max_activations=?,offline_days=?,support_terms=?,update_terms=?,extra_activation_terms=?,terms=?,price_label=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-      args: [name,durationDays,maxActivations,offlineDays,clean(data.supportTerms),clean(data.updateTerms),clean(data.extraActivationTerms),clean(data.terms),clean(data.priceLabel,100),data.active ? 1 : 0,id]
+      sql: `UPDATE license_types SET name=?,duration_days=?,max_activations=?,offline_days=?,support_terms=?,update_terms=?,extra_activation_terms=?,terms=?,price_label=?,active=?,billing_cycle=?,price_amount=?,currency=?,expansion_price=?,expansion_billing_cycle=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+      args: [name,durationDays,maxActivations,offlineDays,clean(data.supportTerms),clean(data.updateTerms),clean(data.extraActivationTerms),clean(data.terms),clean(data.priceLabel,100),data.active ? 1 : 0,billingCycle,priceAmount,currency,expansionPrice,expansionBillingCycle,id]
     });
     await getDb().execute({
       sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",

@@ -34,6 +34,55 @@ export async function POST(request: NextRequest) {
     const body: unknown = await request.json();
     if (!body || typeof body !== "object") return NextResponse.json({ error: "Solicitud inválida." }, { status: 400 });
     const data = body as Record<string, unknown>;
+    if (data.action === "replace-after-format") {
+      const oldLicenseId = typeof data.licenseId === "string" ? data.licenseId.trim() : "";
+      const fee = Number(data.replacementFee);
+      const currency = typeof data.currency === "string" && /^[A-Z]{3}$/.test(data.currency) ? data.currency : "USD";
+      const reason = typeof data.reason === "string" ? data.reason.trim().slice(0, 300) : "Reinstalación por formateo o sustitución de equipo";
+      if (!oldLicenseId || !Number.isFinite(fee) || fee < 0 || fee > 1000000) {
+        return NextResponse.json({ error: "Licencia original e importe de reposición válido son obligatorios." }, { status: 400 });
+      }
+      const db = getDb();
+      const tx = await db.transaction("write");
+      try {
+        const found = await tx.execute({ sql: `SELECT l.*,c.display_name AS customer_name,c.email AS customer_email,c.phone AS customer_phone,c.address AS customer_address,p.name AS product_name,p.edition AS product_edition,p.version AS product_version
+          FROM licenses l JOIN customers c ON c.id=l.customer_id JOIN products p ON p.id=l.product_id WHERE l.id=? LIMIT 1`, args: [oldLicenseId] });
+        const old = found.rows[0];
+        if (!old) { await tx.rollback(); return NextResponse.json({ error: "No se encontró la licencia original." }, { status: 404 }); }
+        if (String(old.status) === "revoked") { await tx.rollback(); return NextResponse.json({ error: "La licencia original ya está revocada; no puede reponerse nuevamente." }, { status: 409 }); }
+        const newId = randomUUID();
+        const rawKey = `SIC-${randomBytes(4).toString("hex").toUpperCase()}-${randomBytes(4).toString("hex").toUpperCase()}-${randomBytes(4).toString("hex").toUpperCase()}`;
+        const keyHash = createHash("sha256").update(rawKey).digest("hex");
+        const keyHint = `…${rawKey.slice(-4)}`;
+        const issuedAt = new Date().toISOString();
+        const terms = old.license_terms_json || JSON.stringify({ durationDays: null, supportTerms: "", updateTerms: "", extraActivationTerms: "", terms: "", offlineDays: 0 });
+        await tx.execute({ sql: `INSERT INTO licenses
+          (id,customer_id,product_id,license_key_hash,license_key_hint,status,starts_at,expires_at,max_activations,created_by,license_type_id,license_type_name,license_terms_json,offline_days,billing_cycle,billing_amount,currency,next_billing_at)
+          VALUES (?,?,?,?,?,'pending',?,?,?,?,?,?,?,?,?,?,?,?)`,
+          args: [newId,String(old.customer_id),String(old.product_id),keyHash,keyHint,issuedAt,old.expires_at ?? null,Number(old.max_activations),session.sub,old.license_type_id ?? null,old.license_type_name ?? "Reposición por formateo",terms,0,old.billing_cycle ?? "once",fee,currency,old.next_billing_at ?? null] });
+        await tx.execute({ sql: "UPDATE licenses SET status='revoked' WHERE id=? AND status<>'revoked'", args: [oldLicenseId] });
+        await tx.execute({ sql: "UPDATE activations SET status='revoked',revoked_at=CURRENT_TIMESTAMP WHERE license_id=? AND status='active'", args: [oldLicenseId] });
+        if (fee > 0) {
+          await tx.execute({ sql: "INSERT INTO license_billing_records (id,license_id,record_type,amount,currency,billing_cycle,period_start,due_at,status,description,created_by) VALUES (?,?, 'adjustment',?,?, 'once',?,?, 'pending',?,?)",
+            args: [randomUUID(),newId,fee,currency,issuedAt,issuedAt,`Reposición de licencia por formateo/cambio de equipo. ${reason}`,session.sub] });
+        }
+        await tx.execute({ sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",
+          args: [randomUUID(),session.sub,"license_replaced_after_format","license",newId,JSON.stringify({oldLicenseId,newLicenseId:newId,fee,currency,reason,oldLicenseRevoked:true})] });
+        await tx.commit();
+        return NextResponse.json({ ok: true, id: newId, replacedLicenseId: oldLicenseId, licenseKey: rawKey, warning: "Guarda esta clave ahora: no se vuelve a mostrar.", certificate: {
+          certificateId: `SIC-CERT-${newId.slice(0,8).toUpperCase()}`, issuedAt, licenseKey: rawKey,
+          licenseTypeName: String(old.license_type_name || "Reposición por formateo"), startsAt: issuedAt,
+          expiresAt: old.expires_at ?? null, maxActivations: Number(old.max_activations), terms: JSON.parse(String(terms)),
+          customerName: old.customer_name, customerEmail: old.customer_email, customerPhone: old.customer_phone,
+          customerAddress: old.customer_address, productName: old.product_name, productEdition: old.product_edition,
+          productVersion: old.product_version, replacementFee: fee, replacementCurrency: currency,
+          replacedCertificateId: oldLicenseId
+        } }, { status: 201 });
+      } catch {
+        await tx.rollback().catch(() => undefined);
+        throw new Error("No se pudo reponer la licencia.");
+      }
+    }
     const customerId = typeof data.customerId === "string" ? data.customerId : "";
     const productId = typeof data.productId === "string" ? data.productId : "";
     const licenseTypeId = typeof data.licenseTypeId === "string" ? data.licenseTypeId : "";

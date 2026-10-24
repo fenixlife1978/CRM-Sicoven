@@ -21,7 +21,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   try {
     await bootstrapDatabase();
-    const result = await getDb().execute("SELECT * FROM license_types ORDER BY active DESC,name");
+    const result = await getDb().execute("SELECT id,name,duration_days,max_activations,support_terms,update_terms,extra_activation_terms,terms,price_label,active,created_at,updated_at,billing_cycle,price_amount,currency,expansion_price,expansion_billing_cycle FROM license_types ORDER BY active DESC,name");
     return NextResponse.json({ licenseTypes: result.rows });
   } catch {
     return NextResponse.json({ error: "No se pudieron consultar los tipos de licencia." }, { status: 503 });

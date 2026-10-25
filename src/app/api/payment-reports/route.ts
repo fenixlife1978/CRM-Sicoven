@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { bootstrapDatabase } from "@/lib/bootstrap";
 import { getDb } from "@/lib/db";
+import { notifyAdminsPush } from "@/lib/push";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,8 +56,12 @@ export async function POST(request: NextRequest) {
     const paymentDate = text(d.paymentDate, 10);
     const sourceBank = text(d.sourceBank, 80);
     const destinationBankId = text(d.destinationBankId, 80);
+    const parsedPaymentDate = /^\d{4}-\d{2}-\d{2}$/.test(paymentDate) ? new Date(paymentDate + "T00:00:00.000Z") : null;
+    const validPaymentDate = !!parsedPaymentDate && !Number.isNaN(parsedPaymentDate.getTime()) &&
+      parsedPaymentDate.toISOString().slice(0, 10) === paymentDate &&
+      paymentDate <= new Intl.DateTimeFormat("en-CA", { timeZone: "America/Caracas", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
     if (!productId || !planId || !customerType || !identityDocument || !phone || !Number.isFinite(amount) || amount <= 0 ||
-      !/^\d{6}$/.test(referenceLastSix) || !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate) ||
+      !/^\d{6}$/.test(referenceLastSix) || !validPaymentDate ||
       !sourceBank || !destinationBankId || (customerType === "person" && (!firstName || !lastName)) ||
       (customerType === "company" && !legalName) ||
       (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
@@ -87,6 +92,11 @@ export async function POST(request: NextRequest) {
       args: [id,productId,planId,customerType,firstName || null,lastName || null,legalName || null,
         identityDocument,taxId || null,email || null,phone,amount,referenceLastSix,paymentDate,sourceBank,destinationBankId]
     });
+    await notifyAdminsPush({
+      title: "CRM-SICOVEN · Nuevo reporte de pago",
+      body: "Se recibió un reporte por " + amount.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ". Requiere verificación manual.",
+      url: "/comercializacion"
+    }).catch(() => undefined);
     return NextResponse.json({ ok: true, reportId: id, status: "pending_review", message: "Reporte recibido. La licencia solo se emitirá después de verificar el pago." }, { status: 201, headers: noStore });
   } catch {
     return NextResponse.json({ error: "No fue posible registrar el reporte. Inténtalo de nuevo más tarde." }, { status: 503, headers: noStore });

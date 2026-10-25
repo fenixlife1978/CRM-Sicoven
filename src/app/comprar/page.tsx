@@ -52,7 +52,7 @@ export default function BuySoftwarePage() {
     try {
       const r=await fetch("/api/payment-reports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
         productId,planId:selectedPlan.id,customerType,firstName,lastName,legalName,identityDocument,taxId,email,phone,
-        amount:Number(amount),referenceLastSix,paymentDate,sourceBank,destinationBankId
+        amount:Number(amount),referenceLastSix,paymentDate,sourceBank,destinationBankId:selectedBank?.id
       })});
       const d=await r.json();if(!r.ok) throw new Error(d.error||"No se pudo enviar el reporte.");
       setSuccess(`Reporte recibido correctamente. Número de seguimiento: ${d.reportId}. Tu pago debe ser verificado manualmente antes de emitir la licencia.`);

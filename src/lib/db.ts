@@ -67,6 +67,10 @@ export async function ensureSchema() {
       ip_hash TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0,
       window_started_at INTEGER NOT NULL, blocked_until INTEGER
     )` },
+    { sql: `CREATE TABLE IF NOT EXISTS activation_ip_attempts (
+      ip_hash TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0,
+      window_started_at INTEGER NOT NULL, blocked_until INTEGER
+    )` },
     { sql: `CREATE TABLE IF NOT EXISTS audit_log (
       id TEXT PRIMARY KEY, user_id TEXT REFERENCES crm_users(id), action TEXT NOT NULL,
       entity_type TEXT NOT NULL, entity_id TEXT, metadata_json TEXT,

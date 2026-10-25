@@ -78,6 +78,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
   const [licenseTypes, setLicenseTypes] = useState<RecordItem[]>([]);
   const [certificate, setCertificate] = useState<Record<string, unknown> | null>(null);
   const [editingPlan, setEditingPlan] = useState<RecordItem | null>(null);
+  const [editingProduct, setEditingProduct] = useState<RecordItem | null>(null);
   const [selectedLicenseId, setSelectedLicenseId] = useState("");
 
   const load = useCallback(async () => {

@@ -1,9 +1,8 @@
-name: CRM SICOVEN CI y escritorio
+name: CRM SICOVEN — verificación web
 
 on:
   push:
-    branches: [main, cloud-crm-foundation]
-    tags: ['v*']
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -30,45 +29,3 @@ jobs:
         run: npx tsc --noEmit
       - name: Production build
         run: npm run build
-
-  desktop:
-    name: Empaquetar instalador Windows
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - name: Install dependencies
-        run: npm install
-      - name: Build Windows installer
-        run: npm run desktop:dist
-      - name: Upload Windows installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: CRM-SICOVEN-Windows-${{ github.ref_name }}
-          path: release/*.exe
-          if-no-files-found: error
-          retention-days: 14
-
-  release:
-    name: Publicar instalador en GitHub Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [verify, desktop]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download Windows installer
-        uses: actions/download-artifact@v4
-        with:
-          name: CRM-SICOVEN-Windows-${{ github.ref_name }}
-          path: release
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release/*.exe
-          generate_release_notes: true

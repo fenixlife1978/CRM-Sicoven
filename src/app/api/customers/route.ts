@@ -48,6 +48,9 @@ export async function POST(request: NextRequest) {
     if (type !== "person" && type !== "company") return NextResponse.json({ error: "Selecciona persona natural o empresa." }, { status: 400 });
 
     const email = clean(data.email, 254)?.toLowerCase() ?? null;
+    if (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      return NextResponse.json({ error: "El correo electrónico no tiene un formato válido." }, { status: 400 });
+    }
     const phone = clean(data.phone, 40);
     const address = clean(data.address, 500);
     const notes = clean(data.notes, 2000);

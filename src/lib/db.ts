@@ -75,7 +75,35 @@ export async function ensureSchema() {
       id TEXT PRIMARY KEY, user_id TEXT REFERENCES crm_users(id), action TEXT NOT NULL,
       entity_type TEXT NOT NULL, entity_id TEXT, metadata_json TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )` }
+    )` },
+
+    { sql: `CREATE TABLE IF NOT EXISTS commercial_plans (
+      id TEXT PRIMARY KEY, product_id TEXT NOT NULL REFERENCES products(id),
+      name TEXT NOT NULL, description TEXT, price_amount REAL NOT NULL CHECK(price_amount >= 0),
+      currency TEXT NOT NULL DEFAULT 'USD', duration_days INTEGER,
+      max_activations INTEGER NOT NULL DEFAULT 1 CHECK(max_activations > 0),
+      active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )` },
+    { sql: `CREATE TABLE IF NOT EXISTS payment_bank_accounts (
+      id TEXT PRIMARY KEY, bank_code TEXT NOT NULL CHECK(bank_code IN ('BDV','MERCANTIL')),
+      bank_name TEXT NOT NULL, holder_name TEXT NOT NULL, identity_document TEXT NOT NULL,
+      phone_number TEXT NOT NULL, account_number TEXT, active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )` },
+    { sql: `CREATE TABLE IF NOT EXISTS payment_reports (
+      id TEXT PRIMARY KEY, product_id TEXT NOT NULL REFERENCES products(id),
+      plan_id TEXT NOT NULL REFERENCES commercial_plans(id), customer_type TEXT NOT NULL CHECK(customer_type IN ('person','company')),
+      first_name TEXT, last_name TEXT, legal_name TEXT, identity_document TEXT NOT NULL,
+      tax_id TEXT, email TEXT, phone TEXT NOT NULL, amount REAL NOT NULL CHECK(amount > 0),
+      reference_last_six TEXT NOT NULL CHECK(length(reference_last_six)=6),
+      payment_date TEXT NOT NULL, source_bank TEXT NOT NULL, destination_bank_id TEXT NOT NULL REFERENCES payment_bank_accounts(id),
+      receipt_url TEXT, status TEXT NOT NULL DEFAULT 'pending_review' CHECK(status IN ('pending_review','approved','rejected')),
+      review_note TEXT, reviewed_by TEXT REFERENCES crm_users(id), reviewed_at TEXT,
+      customer_id TEXT REFERENCES customers(id), license_id TEXT REFERENCES licenses(id),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )` },
+    { sql: `CREATE INDEX IF NOT EXISTS payment_reports_status_created_idx ON payment_reports(status, created_at DESC)` },
   ], "write");
 
   // Additive migrations for existing production databases; safe to run repeatedly.

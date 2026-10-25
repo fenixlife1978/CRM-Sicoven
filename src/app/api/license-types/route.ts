@@ -12,7 +12,8 @@ function clean(value: unknown, max = 2000): string {
 
 function validLimits(durationDays: unknown, maxActivations: unknown, offlineDays: unknown) {
   const durationOk = durationDays === null || durationDays === "" || (Number.isInteger(Number(durationDays)) && Number(durationDays) >= 1 && Number(durationDays) <= 36500);
-  // Match the database CHECK constraint: offline_days must be between 1 and 30.\n  const offlineOk = Number.isInteger(Number(offlineDays)) && Number(offlineDays) >= 1 && Number(offlineDays) <= 30;
+  // Match the database CHECK constraint: offline_days must be between 1 and 30.
+  const offlineOk = Number.isInteger(Number(offlineDays)) && Number(offlineDays) >= 1 && Number(offlineDays) <= 30;
   return durationOk && offlineOk && Number.isInteger(Number(maxActivations)) && Number(maxActivations) >= 1 && Number(maxActivations) <= 100;
 }
 

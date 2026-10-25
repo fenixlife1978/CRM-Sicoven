@@ -43,8 +43,13 @@ export async function POST(request: NextRequest) {
     try {
       const keyHash = createHash("sha256").update(key).digest("hex");
       const found = await tx.execute({
-        sql: `SELECT l.id,l.status,l.starts_at,l.expires_at,l.max_activations,l.offline_days,c.display_name AS customer_name,p.name AS product_name
-              FROM licenses l JOIN customers c ON c.id=l.customer_id JOIN products p ON p.id=l.product_id
+        sql: `SELECT l.id,l.status,l.starts_at,l.expires_at,l.max_activations,
+                     COALESCE(lt.offline_days,l.offline_days,7) AS offline_days,
+                     c.display_name AS customer_name,p.name AS product_name
+              FROM licenses l
+              JOIN customers c ON c.id=l.customer_id
+              JOIN products p ON p.id=l.product_id
+              LEFT JOIN license_types lt ON lt.id=l.license_type_id
               WHERE l.license_key_hash=? AND c.status='active' AND p.status='active' LIMIT 1`,
         args: [keyHash]
       });

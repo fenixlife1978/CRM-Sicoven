@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
     }
 
     await db.execute({ sql: "DELETE FROM auth_login_attempts WHERE email=?", args: [normalizedEmail] });
+    if (ipHash) await db.execute({ sql: "DELETE FROM auth_login_ip_attempts WHERE ip_hash=?", args: [ipHash] });
     const session = { sub: String(user.id), email: String(user.email), role: String(user.role) as "admin" | "operator" | "viewer" };
     await createSession(session);
     await db.execute({

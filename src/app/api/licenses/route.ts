@@ -87,7 +87,8 @@ export async function POST(request: NextRequest) {
     const productId = typeof data.productId === "string" ? data.productId : "";
     const licenseTypeId = typeof data.licenseTypeId === "string" ? data.licenseTypeId : "";
     let maxActivations = Number(data.maxActivations ?? 1);
-    let offlineDays = 0;
+    let offlineDays = Number.isInteger(Number(data.offlineDays)) ? Number(data.offlineDays) : 7;
+    if (offlineDays < 0 || offlineDays > 365) return NextResponse.json({ error: 'El período offline debe estar entre 0 y 365 días.' }, { status: 400 });
     let licenseTypeName = "Personalizada";
     let billingCycle = "once";
     let billingAmount = 0;
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
       billingAmount = Math.max(0, Number(plan.price_amount ?? 0));
       currency = /^[A-Z]{3}$/.test(String(plan.currency ?? "USD")) ? String(plan.currency) : "USD";
       maxActivations = Number(plan.max_activations);
-      offlineDays = 0;
+      offlineDays = Number(plan.offline_days ?? 7);
       licenseTerms = {
         durationDays: plan.duration_days === null ? null : Number(plan.duration_days),
         supportTerms: String(plan.support_terms ?? ""),

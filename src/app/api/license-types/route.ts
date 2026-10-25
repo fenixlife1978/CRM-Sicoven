@@ -12,7 +12,8 @@ function clean(value: unknown, max = 2000): string {
 
 function validLimits(durationDays: unknown, maxActivations: unknown, offlineDays: unknown) {
   const durationOk = durationDays === null || durationDays === "" || (Number.isInteger(Number(durationDays)) && Number(durationDays) >= 1 && Number(durationDays) <= 36500);
-  const offlineOk = Number.isInteger(Number(offlineDays)) && Number(offlineDays) >= 0 && Number(offlineDays) <= 365;
+  // Match the database CHECK constraint: offline_days must be between 1 and 30.
+  const offlineOk = Number.isInteger(Number(offlineDays)) && Number(offlineDays) >= 1 && Number(offlineDays) <= 30;
   return durationOk && offlineOk && Number.isInteger(Number(maxActivations)) && Number(maxActivations) >= 1 && Number(maxActivations) <= 100;
 }
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     const maxActivations = Number(data.maxActivations ?? 1);
     const offlineDays = Number(data.offlineDays ?? 7);
     if (!name || !validLimits(durationDays, maxActivations, offlineDays)) {
-      return NextResponse.json({ error: "Nombre, duración (vitalicia o 1–36500 días) o cantidad de equipos (1–100) no válidos." }, { status: 400 });
+      return NextResponse.json({ error: "Nombre, duración vitalicia o de 1–36500 días, días offline de 1–30 y cantidad de equipos de 1–100 no válidos." }, { status: 400 });
     }
     const billingCycle = ["once","monthly","yearly"].includes(String(data.billingCycle)) ? String(data.billingCycle) : "once";
     const priceAmount = Number(data.priceAmount ?? 0);
@@ -51,15 +52,18 @@ export async function POST(request: NextRequest) {
     const currency = typeof data.currency === "string" && /^[A-Z]{3}$/.test(data.currency) ? data.currency : "USD";
     if (!Number.isFinite(priceAmount) || priceAmount < 0 || !Number.isFinite(expansionPrice) || expansionPrice < 0) return NextResponse.json({ error: "Los precios deben ser importes no negativos." }, { status: 400 });
     const id = randomUUID();
-    await getDb().execute({
-      sql: `INSERT INTO license_types (id,name,duration_days,max_activations,offline_days,support_terms,update_terms,extra_activation_terms,terms,price_label,billing_cycle,price_amount,currency,expansion_price,expansion_billing_cycle)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      args: [id,name,durationDays,maxActivations,offlineDays,clean(data.supportTerms),clean(data.updateTerms),clean(data.extraActivationTerms),clean(data.terms),clean(data.priceLabel,100),billingCycle,priceAmount,currency,expansionPrice,expansionBillingCycle]
-    });
-    await getDb().execute({
-      sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",
-      args: [randomUUID(),session.sub,"license_type_created","license_type",id,JSON.stringify({name,durationDays,maxActivations,offlineDays})]
-    });
+    const db = getDb();
+    await db.batch([
+      {
+        sql: `INSERT INTO license_types (id,name,duration_days,max_activations,offline_days,support_terms,update_terms,extra_activation_terms,terms,price_label,billing_cycle,price_amount,currency,expansion_price,expansion_billing_cycle)
+              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        args: [id,name,durationDays,maxActivations,offlineDays,clean(data.supportTerms),clean(data.updateTerms),clean(data.extraActivationTerms),clean(data.terms),clean(data.priceLabel,100),billingCycle,priceAmount,currency,expansionPrice,expansionBillingCycle]
+      },
+      {
+        sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",
+        args: [randomUUID(),session.sub,"license_type_created","license_type",id,JSON.stringify({name,durationDays,maxActivations,offlineDays})]
+      }
+    ], "write");
     return NextResponse.json({ ok: true, id }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error && /unique/i.test(error.message) ? "Ya existe un tipo de licencia con ese nombre." : "No se pudo guardar el tipo de licencia.";
@@ -90,14 +94,26 @@ export async function PATCH(request: NextRequest) {
         !Number.isFinite(priceAmount) || priceAmount < 0 || !Number.isFinite(expansionPrice) || expansionPrice < 0) {
       return NextResponse.json({ error: "Datos de edición no válidos." }, { status: 400 });
     }
-    await getDb().execute({
-      sql: `UPDATE license_types SET name=?,duration_days=?,max_activations=?,offline_days=?,support_terms=?,update_terms=?,extra_activation_terms=?,terms=?,price_label=?,active=?,billing_cycle=?,price_amount=?,currency=?,expansion_price=?,expansion_billing_cycle=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-      args: [name,durationDays,maxActivations,offlineDays,clean(data.supportTerms),clean(data.updateTerms),clean(data.extraActivationTerms),clean(data.terms),clean(data.priceLabel,100),data.active ? 1 : 0,billingCycle,priceAmount,currency,expansionPrice,expansionBillingCycle,id]
-    });
-    await getDb().execute({
-      sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",
-      args: [randomUUID(),session.sub,"license_type_updated","license_type",id,JSON.stringify({name,durationDays,maxActivations,offlineDays,active:data.active})]
-    });
+    const db = getDb();
+    const tx = await db.transaction("write");
+    try {
+      const updated = await tx.execute({
+        sql: `UPDATE license_types SET name=?,duration_days=?,max_activations=?,offline_days=?,support_terms=?,update_terms=?,extra_activation_terms=?,terms=?,price_label=?,active=?,billing_cycle=?,price_amount=?,currency=?,expansion_price=?,expansion_billing_cycle=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+        args: [name,durationDays,maxActivations,offlineDays,clean(data.supportTerms),clean(data.updateTerms),clean(data.extraActivationTerms),clean(data.terms),clean(data.priceLabel,100),data.active ? 1 : 0,billingCycle,priceAmount,currency,expansionPrice,expansionBillingCycle,id]
+      });
+      if (updated.rowsAffected === 0) {
+        await tx.rollback();
+        return NextResponse.json({ error: "El tipo de licencia no existe." }, { status: 404 });
+      }
+      await tx.execute({
+        sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",
+        args: [randomUUID(),session.sub,"license_type_updated","license_type",id,JSON.stringify({name,durationDays,maxActivations,offlineDays,active:data.active})]
+      });
+      await tx.commit();
+    } catch (error) {
+      await tx.rollback().catch(() => undefined);
+      throw error;
+    }
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "No se pudo actualizar el tipo de licencia." }, { status: 400 });

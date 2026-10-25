@@ -7,6 +7,8 @@ import { getDb } from "@/lib/db";
 export const runtime = "nodejs";
 
 const NO_STORE = { "Cache-Control": "no-store" };
+const ACTIVATION_WINDOW_SECONDS = 15 * 60;
+const ACTIVATION_MAX_FAILURES = 10;
 
 
 export async function GET() {
@@ -41,6 +43,26 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getDb();
+    const clientIp = request.headers.get("x-real-ip")?.trim();
+    const ipHash = clientIp && clientIp.length <= 100
+      ? createHash("sha256").update(clientIp).digest("hex")
+      : null;
+    if (ipHash) {
+      const attemptsResult = await db.execute({
+        sql: "SELECT attempts,window_started_at,blocked_until FROM activation_ip_attempts WHERE ip_hash=? LIMIT 1",
+        args: [ipHash]
+      });
+      const attempts = attemptsResult.rows[0];
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      if (attempts && nowSeconds - Number(attempts.window_started_at) >= ACTIVATION_WINDOW_SECONDS) {
+        await db.execute({ sql: "DELETE FROM activation_ip_attempts WHERE ip_hash=?", args: [ipHash] });
+      } else if (attempts && attempts.blocked_until != null && Number(attempts.blocked_until) > nowSeconds) {
+        return NextResponse.json(
+          { error: "Demasiados intentos de activación desde esta conexión. Espera antes de volver a intentarlo." },
+          { status: 429, headers: { ...NO_STORE, "Retry-After": String(Math.max(1, Number(attempts.blocked_until) - nowSeconds)) } }
+        );
+      }
+    }
     const tx = await db.transaction("write");
     try {
       const keyHash = createHash("sha256").update(key).digest("hex");
@@ -58,6 +80,24 @@ export async function POST(request: NextRequest) {
       const license = found.rows[0];
       if (!license || ["revoked","expired"].includes(String(license.status))) {
         await tx.rollback();
+        if (ipHash) {
+          const nowSeconds = Math.floor(Date.now() / 1000);
+          await db.execute({
+            sql: `INSERT INTO activation_ip_attempts (ip_hash,attempts,window_started_at,blocked_until)
+                  VALUES (?,1,?,NULL)
+                  ON CONFLICT(ip_hash) DO UPDATE SET
+                    attempts=activation_ip_attempts.attempts+1,
+                    window_started_at=CASE
+                      WHEN activation_ip_attempts.attempts+1 >= ${ACTIVATION_MAX_FAILURES} THEN ?
+                      ELSE activation_ip_attempts.window_started_at
+                    END,
+                    blocked_until=CASE
+                      WHEN activation_ip_attempts.attempts+1 >= ${ACTIVATION_MAX_FAILURES} THEN ?+${ACTIVATION_WINDOW_SECONDS}
+                      ELSE activation_ip_attempts.blocked_until
+                    END`,
+            args: [ipHash, nowSeconds, nowSeconds, nowSeconds]
+          });
+        }
         return NextResponse.json({ error: "Licencia inválida, vencida o revocada." }, { status: 403, headers: NO_STORE });
       }
       const now = Date.now();
@@ -106,6 +146,7 @@ export async function POST(request: NextRequest) {
         args: [randomUUID(),"license_activated","license",String(license.id),JSON.stringify({activationId,installationId,deviceLabel})]
       });
       await tx.commit();
+      if (ipHash) await db.execute({ sql: "DELETE FROM activation_ip_attempts WHERE ip_hash=?", args: [ipHash] });
       return NextResponse.json({
         ok: true,
         activation: { id: activationId, status: "active" },

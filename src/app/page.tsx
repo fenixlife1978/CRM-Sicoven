@@ -50,6 +50,7 @@ export default async function HomePage() {
         <p className="nav-label">GESTIÓN</p>
         <Link className="nav-item active" href="/">▦ <span>Resumen</span></Link>
         {cards.map(card => <Link className="nav-item" href={card.href} key={card.href}>▣ <span>{card.title}</span></Link>)}
+        {session.role === "admin" && <Link className="nav-item" href="/comercializacion">💳 <span>Comercialización</span></Link>}
         {session.role === "admin" && <Link className="nav-item" href="/administradores">⚙ <span>Administradores</span></Link>}
         <div className="sidebar-footer"><span className={databaseReady ? "status-dot good" : "status-dot"} />{databaseReady ? "Turso conectado" : "Base de datos no disponible"}</div>
       </aside>

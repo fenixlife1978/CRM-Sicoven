@@ -84,14 +84,8 @@ export default function CommercialPayments() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "No se pudo procesar el reporte.");
       if (decision === "approve" && data.licenseKey) {
-        const message = `PAGO APROBADO
-Cliente: ${data.certificate.customerName}
-Producto: ${data.certificate.productName}
-Plan: ${data.certificate.licenseTypeName}
-Clave: ${data.licenseKey}
-
-Copia esta clave ahora. No se volverá a mostrar en el CRM.`;
-        window.alert(message);
+        setIssued(prev => ({ ...prev, [report.id]: { certificate: data.certificate, licenseKey: data.licenseKey } }));
+        window.alert("Pago aprobado y licencia emitida. Descarga el certificado desde el reporte aprobado; la clave se conservará en esta pantalla mientras permanezca abierta.");
       } else window.alert("Reporte rechazado.");
       await load();
     } catch (e) { window.alert(e instanceof Error ? e.message : "Error inesperado."); }

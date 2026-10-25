@@ -1,6 +1,6 @@
 # CRM SICOVEN
 
-CRM privado para administrar clientes, catálogo de productos, licencias de software y equipos activados del ecosistema SICOVEN. Este repositorio es independiente de los instaladores de escritorio.
+CRM privado para administrar clientes, catálogo de productos, licencias de software y equipos activados del ecosistema SICOVEN. Incluye además un envoltorio opcional de Electron para abrir el portal CRM de producción en una ventana de escritorio; no sustituye ni empaqueta las aplicaciones POS/licenciadas ni añade funcionamiento offline.
 
 ## Implementado en la rama `cloud-crm-foundation`
 
@@ -11,7 +11,7 @@ CRM privado para administrar clientes, catálogo de productos, licencias de soft
 - Activación de equipos exclusivamente en línea, validada contra el CRM y con límite de dispositivos aplicado dentro de una transacción.
 - Consulta de activaciones, revocación administrativa y registro de eventos en auditoría.
 - Panel y módulos web que consultan la base de datos real; no se incorporan registros ficticios.
-- El CRM y las aplicaciones instalables se mantienen separados.
+- El CRM y las aplicaciones POS/licenciadas se mantienen separados; el cliente Electron de este repositorio solo empaqueta el acceso de escritorio al portal CRM.
 
 ## Variables de entorno
 
@@ -34,7 +34,7 @@ npm run lint
 npm run build
 ```
 
-## Pendiente de verificación antes de producción
+## Cliente de escritorio Electron (portal CRM en línea)\n\nEl instalador se genera en Windows mediante GitHub Actions. La aplicación Electron abre `https://crm-sicoven.vercel.app`; por tanto, requiere conexión a internet y que el portal y sus variables de entorno estén operativos. No guarda la base de datos Turso localmente ni ofrece operación offline.\n\n- Desarrollo web: `npm run dev`\n- Empaquetar instalador Windows: `npm run desktop:dist`\n- El artefacto `.exe` se adjunta a cada ejecución de Actions como `CRM-SICOVEN-Windows-*`.\n- Para publicar una GitHub Release, crear y subir una etiqueta versionada `v*` (por ejemplo `v0.2.1`); el workflow publica el instalador automáticamente.\n\n## Pendiente de verificación antes de producción
 
 - Ejecutar lint, comprobación TypeScript y build de producción.
 - Probar login, cierre de sesión, persistencia, duplicados, roles y auditoría contra una base Turso de prueba.

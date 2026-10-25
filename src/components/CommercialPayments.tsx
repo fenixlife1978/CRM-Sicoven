@@ -17,7 +17,30 @@ export default function CommercialPayments() {
   const [busy, setBusy] = useState("");
   const [note, setNote] = useState<Record<string,string>>({});
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("default");
   const [knownPending, setKnownPending] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    setNotificationPermission(Notification.permission);
+  }, []);
+
+  async function enableNotifications() {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      if (permission === "granted") new Notification("CRM-SICOVEN", { body: "Notificaciones de pagos activadas mientras esta pantalla permanezca abierta." });
+    } catch {
+      setNotificationPermission("denied");
+    }
+  }
   const [issued, setIssued] = useState<Record<string, { certificate: Record<string, unknown>; licenseKey: string }>>({});
 
   function downloadCertificate(certificate: Record<string, unknown>, licenseKey: string) {
@@ -59,12 +82,22 @@ export default function CommercialPayments() {
       if (!response.ok) throw new Error(data.error || "No se pudieron cargar los pagos.");
       const nextReports = (data.reports || []) as Report[];
       const nextPending = nextReports.filter(r => r.status === "pending_review").length;
-      if (knownPending !== null && nextPending > knownPending && soundEnabled) playAlert();
+      if (knownPending !== null && nextPending > knownPending) {
+        if (soundEnabled) playAlert();
+        if (notificationPermission === "granted" && typeof document !== "undefined" && document.visibilityState === "visible") {
+          try {
+            new Notification("CRM-SICOVEN · Nuevo reporte de pago", {
+              body: `Hay ${nextPending} reporte(s) pendiente(s) de revisión.`,
+              tag: "sicoven-pending-payments"
+            });
+          } catch { /* El navegador puede bloquear notificaciones del sitio. */ }
+        }
+      }
       setKnownPending(nextPending);
       setReports(nextReports);
       setError("");
     } catch (e) { setError(e instanceof Error ? e.message : "Error de conexión."); }
-  }, [knownPending, soundEnabled]);
+  }, [knownPending, soundEnabled, notificationPermission]);
 
   useEffect(() => {
     void load();
@@ -94,7 +127,7 @@ export default function CommercialPayments() {
 
   const pending = reports.filter(r => r.status === "pending_review").length;
   return <main className="page">
-    <header className="top"><div><Link href="/" className="back">← Centro de control</Link><p className="eyebrow">COMERCIALIZACIÓN</p><h1>Reportes de Pago Móvil</h1><p className="sub">Bandeja administrativa de solicitudes comerciales. Los pagos se verifican manualmente.</p></div><div className="topActions"><Link className="refresh" href="/comercializacion/configuracion">Planes y bancos</Link><button className={soundEnabled ? "refresh soundOn" : "refresh"} onClick={() => setSoundEnabled(v => !v)}>{soundEnabled ? "🔔 Sonido activado" : "🔕 Activar sonido"}</button><button className="refresh" onClick={() => void load()}>Actualizar</button></div></header>
+    <header className="top"><div><Link href="/" className="back">← Centro de control</Link><p className="eyebrow">COMERCIALIZACIÓN</p><h1>Reportes de Pago Móvil</h1><p className="sub">Bandeja administrativa de solicitudes comerciales. Los pagos se verifican manualmente.</p></div><div className="topActions"><Link className="refresh" href="/comercializacion/configuracion">Planes y bancos</Link><button className={soundEnabled ? "refresh soundOn" : "refresh"} onClick={() => setSoundEnabled(v => !v)}>{soundEnabled ? "🔔 Sonido activado" : "🔕 Activar sonido"}</button><button className={notificationPermission === "granted" ? "refresh soundOn" : "refresh"} onClick={() => void enableNotifications()} disabled={notificationPermission === "unsupported" || notificationPermission === "denied"}>{notificationPermission === "granted" ? "🔔 Notificaciones activadas" : notificationPermission === "denied" ? "Notificaciones bloqueadas" : notificationPermission === "unsupported" ? "Sin soporte de notificaciones" : "Activar notificaciones"}</button><button className="refresh" onClick={() => void load()}>Actualizar</button></div></header>
     <section className="stats"><div><span>Pendientes de revisión</span><strong>{pending}</strong></div><div><span>Reportes registrados</span><strong>{reports.length}</strong></div><div><span>Notificación</span><strong>En esta pantalla</strong><small>Actualización cada 30 segundos</small></div></section>
     {error && <p className="error" role="alert">{error}</p>}
     {reports.length === 0 && !error && <section className="empty"><h2>No hay reportes de pago</h2><p>Cuando un cliente envíe el formulario público, aparecerá aquí.</p></section>}

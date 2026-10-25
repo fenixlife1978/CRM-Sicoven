@@ -63,6 +63,28 @@ export async function POST(request:NextRequest) {
       ],"write");
       return NextResponse.json({ok:true,id},{status:201,headers:noStore});
     }
+    if(action==="update-bank") {
+      const id=clean(d.id,80), bankCode=clean(d.bankCode,20);
+      const bankName=bankCode==="BDV"?"Banco de Venezuela":bankCode==="MERCANTIL"?"Mercantil":"";
+      const identity=clean(d.identityDocument,40), phone=clean(d.phoneNumber,40), account=clean(d.accountNumber,40);
+      if(!id||!bankName||!identity||!phone) return NextResponse.json({error:"Selecciona el banco e indica documento y teléfono."},{status:400,headers:noStore});
+      const r=await db.execute({sql:"UPDATE payment_bank_accounts SET bank_code=?,bank_name=?,identity_document=?,phone_number=?,account_number=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",args:[bankCode,bankName,identity,phone,account||null,id]});
+      if(r.rowsAffected===0) return NextResponse.json({error:"No se encontró la cuenta bancaria."},{status:404,headers:noStore});
+      await db.execute({sql:"INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",args:[randomUUID(),session.sub,"payment_bank_updated","payment_bank_account",id,JSON.stringify({bankCode,bankName,identity,phone})]});
+      return NextResponse.json({ok:true},{headers:noStore});
+    }
+    if(action==="delete-bank") {
+      const id=clean(d.id,80);
+      if(!id) return NextResponse.json({error:"Identificador requerido."},{status:400,headers:noStore});
+      const existing=await db.execute({sql:"SELECT id FROM payment_bank_accounts WHERE id=? LIMIT 1",args:[id]});
+      if(!existing.rows.length) return NextResponse.json({error:"No se encontró la cuenta bancaria."},{status:404,headers:noStore});
+      // Keep historical payment reports valid: remove the account from public use by deactivating it.
+      await db.batch([
+        {sql:"UPDATE payment_bank_accounts SET active=0,updated_at=CURRENT_TIMESTAMP WHERE id=?",args:[id]},
+        {sql:"INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",args:[randomUUID(),session.sub,"payment_bank_deleted","payment_bank_account",id,JSON.stringify({deactivated:true})]}
+      ],"write");
+      return NextResponse.json({ok:true,archived:true},{headers:noStore});
+    }
     if(action==="toggle-plan"||action==="toggle-bank") {
       const id=clean(d.id,80), active=d.active===true?1:0;
       if(!id) return NextResponse.json({error:"Identificador requerido."},{status:400,headers:noStore});

@@ -62,7 +62,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
           sql: `INSERT INTO customers (id,type,display_name,first_name,last_name,identity_document,legal_name,tax_id,email,phone,status,created_by)
             VALUES (?,?,?,?,?,?,?,?,?,?,'active',?)`,
           args: [customerId,type,displayName,report.first_name ?? null,report.last_name ?? null,type === "person" ? identity : null,
-            type === "company" ? String(report.legal_name) : null,taxId,type === "company" ? identity : report.email ?? null,String(report.phone),session.sub]
+            type === "company" ? String(report.legal_name) : null,taxId,report.email ?? null,String(report.phone),session.sub]
         });
       }
 

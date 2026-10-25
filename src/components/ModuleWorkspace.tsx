@@ -127,6 +127,20 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     finally { setBusy(false); }
   }
 
+  async function deleteProduct(product: RecordItem) {
+    if (!window.confirm("¿Eliminar el producto “" + text(product.name) + "”? Si tiene licencias, planes o reportes de pago asociados, se desactivará para conservar el historial.")) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/products/" + encodeURIComponent(text(product.id)), { method: "DELETE" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "No se pudo eliminar el producto.");
+      setNotice(result.archived ? "Producto desactivado para conservar los registros asociados." : "Producto eliminado.");
+      if (editingProduct?.id === product.id) setEditingProduct(null);
+      await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Error al eliminar el producto."); }
+    finally { setBusy(false); }
+  }
+
   async function submitPlan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     const data = Object.fromEntries(new FormData(event.currentTarget).entries());
@@ -262,9 +276,9 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     {kind === "clientes" && <div className="search"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar por nombre, cédula, RIF o correo…" /><button className="secondary" onClick={() => void load()}>Buscar</button></div>}
     <section className="panel"><div className="list-heading"><h2>Registros</h2><span>{loading ? "Cargando…" : `${items.length} registros mostrados`}</span></div>
       {loading ? <p className="muted">Consultando Turso…</p> : items.length === 0 ? <p className="muted">No hay registros que mostrar.</p> :
-      <div className="table-wrap"><table><thead><tr>{(kind === "clientes" ? ["Nombre","Tipo","Documento","Correo","Estado"] : kind === "productos" ? ["Producto","Edición","Versión","Licencias","Estado"] : kind === "licencias" ? ["Cliente","Producto","Clave","Estado","Equipos"] : ["Cliente","Producto","Equipo","Estado","Activación","Acción"]).map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{items.map((item,i) => <tr key={text(item.id) || i}>
+      <div className="table-wrap"><table><thead><tr>{(kind === "clientes" ? ["Nombre","Tipo","Documento","Correo","Estado"] : kind === "productos" ? ["Producto","Edición","Versión","Licencias","Estado","Acciones"] : kind === "licencias" ? ["Cliente","Producto","Clave","Estado","Equipos"] : ["Cliente","Producto","Equipo","Estado","Activación","Acción"]).map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{items.map((item,i) => <tr key={text(item.id) || i}>
         {kind === "clientes" && <><td>{text(item.display_name)}</td><td>{text(item.type) === "person" ? "Persona" : "Empresa"}</td><td>{text(item.identity_document || item.tax_id)}</td><td>{text(item.email)}</td><td>{text(item.status)}</td></>}
-        {kind === "productos" && <><td>{text(item.name)}</td><td>{text(item.edition)}</td><td>{text(item.version)}</td><td>{text(item.license_count)}</td><td>{text(item.status)}</td></>}
+        {kind === "productos" && <><td>{text(item.name)}</td><td>{text(item.edition)}</td><td>{text(item.version)}</td><td>{text(item.license_count)}</td><td>{text(item.status)}</td><td><button type="button" className="secondary" disabled={busy} onClick={() => { setEditingProduct(item); setError(""); setNotice(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Editar</button> <button type="button" className="danger" disabled={busy} onClick={() => void deleteProduct(item)}>Eliminar</button></td></>}
         {kind === "licencias" && <><td>{text(item.customer_name)}</td><td>{text(item.product_name)}</td><td>{text(item.license_key_hint)}</td><td>{text(item.status)}</td><td>{text(item.active_activations)} / {text(item.max_activations)} <button type="button" className="secondary" onClick={() => setSelectedLicenseId(text(item.id))}>Ampliar</button> {item.status !== "revoked" && item.status !== "expired" && <button type="button" className="danger" disabled={busy} onClick={() => void replaceLicense(text(item.id))}>Reposición por formateo</button>}</td></>}
         {kind === "activaciones" && <><td>{text(item.customer_name)}</td><td>{text(item.product_name)}</td><td>{text(item.device_label || item.installation_id)}</td><td>{text(item.status)}</td><td>{text(item.activated_at)}</td><td>{item.status === "active" ? <button className="danger" onClick={() => void revoke(text(item.id))}>Revocar</button> : "—"}</td></>}
       </tr>)}</tbody></table></div>}

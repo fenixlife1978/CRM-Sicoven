@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         await tx.execute({ sql: `INSERT INTO licenses
           (id,customer_id,product_id,license_key_hash,license_key_hint,status,starts_at,expires_at,max_activations,created_by,license_type_id,license_type_name,license_terms_json,offline_days,billing_cycle,billing_amount,currency,next_billing_at)
           VALUES (?,?,?,?,?,'pending',?,?,?,?,?,?,?,?,?,?,?,?)`,
-          args: [newId,String(old.customer_id),String(old.product_id),keyHash,keyHint,issuedAt,old.expires_at ?? null,Number(old.max_activations),session.sub,old.license_type_id ?? null,old.license_type_name ?? "Reposición por formateo",terms,0,old.billing_cycle ?? "once",fee,currency,old.next_billing_at ?? null] });
+          args: [newId,String(old.customer_id),String(old.product_id),keyHash,keyHint,issuedAt,old.expires_at ?? null,Number(old.max_activations),session.sub,old.license_type_id ?? null,old.license_type_name ?? "Reposición por formateo",terms,Number(old.offline_days ?? 7),old.billing_cycle ?? "once",fee,currency,old.next_billing_at ?? null] });
         await tx.execute({ sql: "UPDATE licenses SET status='revoked' WHERE id=? AND status<>'revoked'", args: [oldLicenseId] });
         await tx.execute({ sql: "UPDATE activations SET status='revoked',revoked_at=CURRENT_TIMESTAMP WHERE license_id=? AND status='active'", args: [oldLicenseId] });
         if (fee > 0) {

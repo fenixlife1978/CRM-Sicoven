@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "desktop:dist": "electron-builder --win nsis --x64"
   },
   "dependencies": {
     "@libsql/client": "^0.15.15",
@@ -25,6 +26,42 @@
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.1",
     "eslint-config-next": "^15.5.9",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "electron": "^38.2.2",
+    "electron-builder": "^26.0.12"
+  },
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.efasfreelancer.crm-sicoven",
+    "productName": "CRM SICOVEN",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CRM SICOVEN"
+    },
+    "artifactName": "CRM-SICOVEN-Setup-${version}-${arch}.${ext}"
   }
 }

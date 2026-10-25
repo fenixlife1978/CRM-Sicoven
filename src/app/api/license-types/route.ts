@@ -12,7 +12,7 @@ function clean(value: unknown, max = 2000): string {
 
 function validLimits(durationDays: unknown, maxActivations: unknown, offlineDays: unknown) {
   const durationOk = durationDays === null || durationDays === "" || (Number.isInteger(Number(durationDays)) && Number(durationDays) >= 1 && Number(durationDays) <= 36500);
-  const offlineOk = Number.isInteger(Number(offlineDays)) && Number(offlineDays) >= 0 && Number(offlineDays) <= 365;
+  // Match the database CHECK constraint: offline_days must be between 1 and 30.\n  const offlineOk = Number.isInteger(Number(offlineDays)) && Number(offlineDays) >= 1 && Number(offlineDays) <= 30;
   return durationOk && offlineOk && Number.isInteger(Number(maxActivations)) && Number(maxActivations) >= 1 && Number(maxActivations) <= 100;
 }
 
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const maxActivations = Number(data.maxActivations ?? 1);
     const offlineDays = Number(data.offlineDays ?? 7);
     if (!name || !validLimits(durationDays, maxActivations, offlineDays)) {
-      return NextResponse.json({ error: "Nombre, duración (vitalicia o 1–36500 días) o cantidad de equipos (1–100) no válidos." }, { status: 400 });
+      return NextResponse.json({ error: "Nombre, duración vitalicia o de 1–36500 días, días offline de 1–30 y cantidad de equipos de 1–100 no válidos." }, { status: 400 });
     }
     const billingCycle = ["once","monthly","yearly"].includes(String(data.billingCycle)) ? String(data.billingCycle) : "once";
     const priceAmount = Number(data.priceAmount ?? 0);

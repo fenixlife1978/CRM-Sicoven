@@ -41,7 +41,9 @@ export default function BuySoftwarePage() {
   },[]);
 
   const productPlans = plans.filter(p=>p.product_id===productId);
-  const selectedPlan = productPlans.find(p=>p.id===planId) || productPlans[0];\n  const bankOptions = Array.from(new Map(banks.map(b=>[b.bank_code,b])).values());\n  const selectedBank = bankOptions.find(b=>b.bank_code===destinationBankCode) || bankOptions[0];
+  const selectedPlan = productPlans.find(p=>p.id===planId) || productPlans[0];
+  const bankOptions = Array.from(new Map(banks.map(b=>[b.bank_code,b])).values());
+  const selectedBank = bankOptions.find(b=>b.bank_code===destinationBankCode) || bankOptions[0];
 
   useEffect(()=>{ if(productPlans.length && !productPlans.some(p=>p.id===planId)) setPlanId(productPlans[0].id); },[productId,plans,planId,productPlans]);
 

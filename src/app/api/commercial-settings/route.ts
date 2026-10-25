@@ -18,7 +18,7 @@ export async function GET() {
     const [products,plans,banks]=await Promise.all([
       db.execute("SELECT id,name,edition,status FROM products ORDER BY name"),
       db.execute("SELECT id,product_id,name,description,price_amount,currency,duration_days,max_activations,active FROM commercial_plans ORDER BY created_at DESC"),
-      db.execute("SELECT id,bank_code,bank_name,holder_name,identity_document,phone_number,account_number,active FROM payment_bank_accounts ORDER BY created_at DESC")
+      db.execute("SELECT id,bank_code,bank_name,identity_document,phone_number,account_number,active FROM payment_bank_accounts ORDER BY created_at DESC")
     ]);
     return NextResponse.json({products:products.rows,plans:plans.rows,banks:banks.rows},{headers:noStore});
   } catch { return NextResponse.json({error:"No se pudo cargar la configuración comercial."},{status:503,headers:noStore}); }
@@ -54,12 +54,12 @@ export async function POST(request:NextRequest) {
     if(action==="create-bank") {
       const bankCode=clean(d.bankCode,20);
       const bankName=bankCode==="BDV"?"Banco de Venezuela":bankCode==="MERCANTIL"?"Mercantil":"";
-      const holder=clean(d.holderName,200), identity=clean(d.identityDocument,40), phone=clean(d.phoneNumber,40), account=clean(d.accountNumber,40);
-      if(!bankName||!holder||!identity||!phone) return NextResponse.json({error:"Selecciona uno de los bancos admitidos e indica titular, documento y teléfono."},{status:400,headers:noStore});
+      const identity=clean(d.identityDocument,40), phone=clean(d.phoneNumber,40), account=clean(d.accountNumber,40);
+      if(!bankName||!identity||!phone) return NextResponse.json({error:"Selecciona uno de los bancos admitidos e indica documento y teléfono."},{status:400,headers:noStore});
       const id=randomUUID();
       await db.batch([
-        {sql:"INSERT INTO payment_bank_accounts (id,bank_code,bank_name,holder_name,identity_document,phone_number,account_number,active) VALUES (?,?,?,?,?,?,?,1)",args:[id,bankCode,bankName,holder,identity,phone,account||null]},
-        {sql:"INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",args:[randomUUID(),session.sub,"payment_bank_created","payment_bank_account",id,JSON.stringify({bankCode,bankName,holder})]}
+        {sql:"INSERT INTO payment_bank_accounts (id,bank_code,bank_name,holder_name,identity_document,phone_number,account_number,active) VALUES (?,?,?,?,?,?,?,1)",args:[id,bankCode,bankName,"",identity,phone,account||null]},
+        {sql:"INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",args:[randomUUID(),session.sub,"payment_bank_created","payment_bank_account",id,JSON.stringify({bankCode,bankName,identity,phone})]}
       ],"write");
       return NextResponse.json({ok:true,id},{status:201,headers:noStore});
     }

@@ -5,7 +5,7 @@ import { bootstrapDatabase } from "@/lib/bootstrap";
 import { getDb } from "@/lib/db";
 
 export const runtime = "nodejs";
-const kinds = new Set(["devices", "pos_terminals", "users", "branches"]);
+const kinds = new Set(["devices"]);
 const cycles = new Set(["once", "monthly", "yearly"]);
 
 export async function GET(request: NextRequest) {

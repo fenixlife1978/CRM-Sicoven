@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     const licenseTypeId = typeof data.licenseTypeId === "string" ? data.licenseTypeId : "";
     let maxActivations = Number(data.maxActivations ?? 1);
     let offlineDays = Number.isInteger(Number(data.offlineDays)) ? Number(data.offlineDays) : 7;
-    if (offlineDays < 0 || offlineDays > 365) return NextResponse.json({ error: 'El período offline debe estar entre 0 y 365 días.' }, { status: 400 });
+    if (offlineDays < 1 || offlineDays > 30) return NextResponse.json({ error: "El período sin conexión debe estar entre 1 y 30 días." }, { status: 400 });
     let licenseTypeName = "Personalizada";
     let billingCycle = "once";
     let billingAmount = 0;
@@ -130,6 +130,9 @@ export async function POST(request: NextRequest) {
       } else {
         expiresAt = null;
       }
+    }
+    if (!Number.isInteger(offlineDays) || offlineDays < 1 || offlineDays > 30) {
+      return NextResponse.json({ error: "El tipo de licencia seleccionado supera el período sin conexión permitido (1 a 30 días)." }, { status: 400 });
     }
     if (!customerId || !productId || !Number.isInteger(maxActivations) || maxActivations < 1 || maxActivations > 100) {
       return NextResponse.json({ error: "Cliente, producto y límite válido de equipos son obligatorios." }, { status: 400 });

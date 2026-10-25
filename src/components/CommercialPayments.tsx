@@ -11,6 +11,15 @@ type Report = {
   destination_bank: string; status: string; created_at: string; review_note?: string | null;
 };
 
+function decodeVapidKey(value: string): Uint8Array {
+  const padding = "=".repeat((4 - value.length % 4) % 4);
+  const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = window.atob(base64);
+  const output = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) output[i] = raw.charCodeAt(i);
+  return output;
+}
+
 export default function CommercialPayments() {
   const [reports, setReports] = useState<Report[]>([]);
   const [error, setError] = useState("");
@@ -19,6 +28,7 @@ export default function CommercialPayments() {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("default");
   const [knownPending, setKnownPending] = useState<number | null>(null);
+  const [pushStatus, setPushStatus] = useState<"idle" | "enabled" | "unsupported" | "denied" | "error">("idle");
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) {
@@ -41,6 +51,44 @@ export default function CommercialPayments() {
       setNotificationPermission("denied");
     }
   }
+  async function enablePushNotifications() {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+      setPushStatus("unsupported");
+      return;
+    }
+    try {
+      const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+      if (permission !== "granted") {
+        setPushStatus("denied");
+        setNotificationPermission(permission);
+        return;
+      }
+      setNotificationPermission("granted");
+      const keyResponse = await fetch("/api/push/public-key", { cache: "no-store" });
+      const keyData = await keyResponse.json();
+      if (!keyResponse.ok || !keyData.publicKey) throw new Error(keyData.error || "Falta configurar la clave pública PUSH del servidor.");
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: decodeVapidKey(keyData.publicKey)
+      });
+      const response = await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription: subscription.toJSON() })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "No se pudo registrar este dispositivo.");
+      setPushStatus("enabled");
+      new Notification("CRM-SICOVEN · PUSH activado", { body: "Este dispositivo recibirá alertas de nuevos reportes aunque cierres esta pantalla." });
+    } catch (e) {
+      setPushStatus("error");
+      window.alert(e instanceof Error ? e.message : "No se pudieron activar las notificaciones PUSH.");
+    }
+  }
+
   const [issued, setIssued] = useState<Record<string, { certificate: Record<string, unknown>; licenseKey: string }>>({});
 
   function downloadCertificate(certificate: Record<string, unknown>, licenseKey: string) {
@@ -127,8 +175,8 @@ export default function CommercialPayments() {
 
   const pending = reports.filter(r => r.status === "pending_review").length;
   return <main className="page">
-    <header className="top"><div><Link href="/" className="back">← Centro de control</Link><p className="eyebrow">COMERCIALIZACIÓN</p><h1>Reportes de Pago Móvil</h1><p className="sub">Bandeja administrativa de solicitudes comerciales. Los pagos se verifican manualmente.</p></div><div className="topActions"><Link className="refresh" href="/comercializacion/configuracion">Planes y bancos</Link><button className={soundEnabled ? "refresh soundOn" : "refresh"} onClick={() => setSoundEnabled(v => !v)}>{soundEnabled ? "🔔 Sonido activado" : "🔕 Activar sonido"}</button><button className={notificationPermission === "granted" ? "refresh soundOn" : "refresh"} onClick={() => void enableNotifications()} disabled={notificationPermission === "unsupported" || notificationPermission === "denied"}>{notificationPermission === "granted" ? "🔔 Notificaciones activadas" : notificationPermission === "denied" ? "Notificaciones bloqueadas" : notificationPermission === "unsupported" ? "Sin soporte de notificaciones" : "Activar notificaciones"}</button><button className="refresh" onClick={() => void load()}>Actualizar</button></div></header>
-    <section className="stats"><div><span>Pendientes de revisión</span><strong>{pending}</strong></div><div><span>Reportes registrados</span><strong>{reports.length}</strong></div><div><span>Notificación</span><strong>En esta pantalla</strong><small>Actualización cada 30 segundos</small></div></section>
+    <header className="top"><div><Link href="/" className="back">← Centro de control</Link><p className="eyebrow">COMERCIALIZACIÓN</p><h1>Reportes de Pago Móvil</h1><p className="sub">Bandeja administrativa de solicitudes comerciales. Los pagos se verifican manualmente.</p></div><div className="topActions"><Link className="refresh" href="/comercializacion/configuracion">Planes y bancos</Link><button className={soundEnabled ? "refresh soundOn" : "refresh"} onClick={() => setSoundEnabled(v => !v)}>{soundEnabled ? "🔔 Sonido activado" : "🔕 Activar sonido"}</button><button className={pushStatus === "enabled" ? "refresh soundOn" : "refresh"} onClick={() => void enablePushNotifications()} disabled={pushStatus === "unsupported" || pushStatus === "denied"}>{pushStatus === "enabled" ? "📲 PUSH activado" : pushStatus === "unsupported" ? "PUSH no compatible" : pushStatus === "denied" ? "PUSH bloqueado" : pushStatus === "error" ? "Reintentar PUSH" : "📲 Activar PUSH"}</button><button className={notificationPermission === "granted" ? "refresh soundOn" : "refresh"} onClick={() => void enableNotifications()} disabled={notificationPermission === "unsupported" || notificationPermission === "denied"}>{notificationPermission === "granted" ? "Aviso local activado" : notificationPermission === "denied" ? "Aviso local bloqueado" : notificationPermission === "unsupported" ? "Sin soporte local" : "Aviso local"}</button><button className="refresh" onClick={() => void load()}>Actualizar</button></div></header>
+    <section className="stats"><div><span>Pendientes de revisión</span><strong>{pending}</strong></div><div><span>Reportes registrados</span><strong>{reports.length}</strong></div><div><span>Notificación</span><strong>{pushStatus === "enabled" ? "PUSH activo" : "PUSH configurable"}</strong><small>Alertas fuera de la pantalla con suscripción activa</small></div></section>
     {error && <p className="error" role="alert">{error}</p>}
     {reports.length === 0 && !error && <section className="empty"><h2>No hay reportes de pago</h2><p>Cuando un cliente envíe el formulario público, aparecerá aquí.</p></section>}
     <section className="list">{reports.map(r => <article className="report" key={r.id}>

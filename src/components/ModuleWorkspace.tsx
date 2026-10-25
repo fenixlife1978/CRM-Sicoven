@@ -114,12 +114,13 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       }
     }
     try {
-      const response = await fetch(current.endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const response = await fetch(kind === "productos" && editingProduct ? "/api/products/" + encodeURIComponent(text(editingProduct.id)) : current.endpoint, { method: kind === "productos" && editingProduct ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "No se pudo guardar.");
       if (result.licenseKey) setIssuedKey(result.licenseKey);
       if (result.certificate) setCertificate(result.certificate as Record<string, unknown>);
-      setNotice(kind === "licencias" ? "Licencia emitida. Descarga el certificado PDF y guarda la clave de forma segura." : "Registro guardado correctamente.");
+      setNotice(kind === "licencias" ? "Licencia emitida. Descarga el certificado PDF y guarda la clave de forma segura." : kind === "productos" && editingProduct ? "Producto actualizado correctamente." : "Registro guardado correctamente.");
+      if (kind === "productos") setEditingProduct(null);
       formElement.reset();
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Error al guardar."); }

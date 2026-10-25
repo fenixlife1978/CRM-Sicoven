@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 import { bootstrapDatabase } from "@/lib/bootstrap";
@@ -9,6 +9,8 @@ export const runtime = "nodejs";
 
 const LOGIN_WINDOW_SECONDS = 15 * 60;
 const LOGIN_MAX_FAILURES = 8;
+const IP_WINDOW_SECONDS = 15 * 60;
+const IP_MAX_FAILURES = 30;
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +25,31 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = email.trim().toLowerCase();
     const db = getDb();
     const now = Math.floor(Date.now() / 1000);
+
+    // Prefer Vercel's x-real-ip; do not trust arbitrary X-Forwarded-For chains.
+    // Hash the address so raw client IPs are not persisted.
+    const clientIp = request.headers.get("x-real-ip")?.trim();
+    const ipHash = clientIp && clientIp.length <= 100
+      ? createHash("sha256").update(clientIp).digest("hex")
+      : null;
+    if (ipHash) {
+      const ipResult = await db.execute({
+        sql: "SELECT attempts,window_started_at,blocked_until FROM auth_login_ip_attempts WHERE ip_hash=? LIMIT 1",
+        args: [ipHash]
+      });
+      let ipAttempts: (typeof ipResult.rows)[number] | undefined = ipResult.rows[0];
+      if (ipAttempts && now - Number(ipAttempts.window_started_at) >= IP_WINDOW_SECONDS) {
+        await db.execute({ sql: "DELETE FROM auth_login_ip_attempts WHERE ip_hash=?", args: [ipHash] });
+        ipAttempts = undefined;
+      }
+      if (ipAttempts && ipAttempts.blocked_until != null && Number(ipAttempts.blocked_until) > now) {
+        const retryAfter = Math.max(1, Number(ipAttempts.blocked_until) - now);
+        return NextResponse.json(
+          { error: "Demasiados intentos desde esta conexión. Espera antes de volver a intentarlo." },
+          { status: 429, headers: { "Retry-After": String(retryAfter), "Cache-Control": "no-store" } }
+        );
+      }
+    }
 
     // Persisted per-account throttling works across serverless instances and restarts.
     const attemptsResult = await db.execute({
@@ -49,6 +76,28 @@ export async function POST(request: NextRequest) {
     const user = result.rows[0];
     const valid = !!user && Number(user.active) === 1 && await bcrypt.compare(password, String(user.password_hash));
     if (!valid) {
+      if (ipHash) {
+        await db.execute({
+          sql: `INSERT INTO auth_login_ip_attempts (ip_hash,attempts,window_started_at,blocked_until)
+                VALUES (?,1,?,NULL)
+                ON CONFLICT(ip_hash) DO UPDATE SET
+                  attempts=CASE
+                    WHEN ? - auth_login_ip_attempts.window_started_at >= ${IP_WINDOW_SECONDS} THEN 1
+                    ELSE auth_login_ip_attempts.attempts+1
+                  END,
+                  window_started_at=CASE
+                    WHEN ? - auth_login_ip_attempts.window_started_at >= ${IP_WINDOW_SECONDS} THEN ?
+                    WHEN auth_login_ip_attempts.attempts+1 >= ${IP_MAX_FAILURES} THEN ?
+                    ELSE auth_login_ip_attempts.window_started_at
+                  END,
+                  blocked_until=CASE
+                    WHEN ? - auth_login_ip_attempts.window_started_at >= ${IP_WINDOW_SECONDS} THEN NULL
+                    WHEN auth_login_ip_attempts.attempts+1 >= ${IP_MAX_FAILURES} THEN ?+${IP_WINDOW_SECONDS}
+                    ELSE auth_login_ip_attempts.blocked_until
+                  END`,
+          args: [ipHash, now, now, now, now, now, now, now]
+        });
+      }
       await db.execute({
         sql: `INSERT INTO auth_login_attempts (email,attempts,window_started_at,blocked_until)
               VALUES (?,1,?,NULL)

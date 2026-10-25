@@ -157,4 +157,11 @@ export async function ensureSchema() {
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`);
 
+  await db.execute(`CREATE TABLE IF NOT EXISTS admin_push_subscriptions (
+    id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL UNIQUE, subscription_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await db.execute("CREATE INDEX IF NOT EXISTS admin_push_subscriptions_user_idx ON admin_push_subscriptions(user_id)");
+
 }

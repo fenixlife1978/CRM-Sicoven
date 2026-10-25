@@ -69,6 +69,16 @@ export async function POST(request: NextRequest) {
     ]);
     if (!plan.rows[0] || !bank.rows[0]) return NextResponse.json({ error: "El plan o la cuenta de destino ya no están disponibles." }, { status: 400, headers: noStore });
     if (Math.abs(Number(plan.rows[0].price_amount) - amount) > 0.005) return NextResponse.json({ error: "El monto reportado no coincide con el precio vigente del plan." }, { status: 400, headers: noStore });
+    // Prevent accidental duplicate submissions for the same reported transfer.
+    const duplicate = await db.execute({
+      sql: `SELECT id FROM payment_reports
+        WHERE destination_bank_id=? AND source_bank=? AND payment_date=? AND reference_last_six=?
+        AND amount=? AND status IN ('pending_review','approved') LIMIT 1`,
+      args: [destinationBankId,sourceBank,paymentDate,referenceLastSix,amount]
+    });
+    if (duplicate.rows.length) {
+      return NextResponse.json({ error: "Ya existe un reporte con esa referencia, fecha, monto y cuenta receptora. Revisa el estado antes de enviarlo otra vez." }, { status: 409, headers: noStore });
+    }
     const id = randomUUID();
     await db.execute({
       sql: `INSERT INTO payment_reports (id,product_id,plan_id,customer_type,first_name,last_name,legal_name,

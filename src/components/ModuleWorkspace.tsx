@@ -130,7 +130,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     const data = Object.fromEntries(new FormData(event.currentTarget).entries());
     const planData = {
       ...data, id: editingPlan?.id, durationDays: data.durationDays === "" ? null : Number(data.durationDays),
-      maxActivations: Number(data.maxActivations), priceAmount: Number(data.priceAmount || 0), expansionPrice: Number(data.expansionPrice || 0),
+      maxActivations: Number(data.maxActivations), offlineDays: Number(data.offlineDays), priceAmount: Number(data.priceAmount || 0), expansionPrice: Number(data.expansionPrice || 0),
       active: editingPlan ? Number(editingPlan.active) === 1 : true
     };
     try {
@@ -147,7 +147,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     const active = Number(plan.active) === 1;
     const payload = {
       id: plan.id, name: plan.name, durationDays: plan.duration_days === null ? null : Number(plan.duration_days),
-      maxActivations: Number(plan.max_activations),
+      maxActivations: Number(plan.max_activations), offlineDays: Number(plan.offline_days ?? 7),
       supportTerms: text(plan.support_terms) === "—" ? "" : plan.support_terms,
       updateTerms: text(plan.update_terms) === "—" ? "" : plan.update_terms,
       extraActivationTerms: text(plan.extra_activation_terms) === "—" ? "" : plan.extra_activation_terms,
@@ -231,6 +231,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
         <label>Nombre del plan<input name="name" required defaultValue={text(editingPlan?.name) === "—" ? "" : text(editingPlan?.name)} placeholder="Ej. Perpetua Profesional" /></label>
         <label>Duración en días (vacío = vitalicia)<input name="durationDays" type="number" min="1" max="36500" defaultValue={editingPlan?.duration_days === null || editingPlan?.duration_days === undefined ? "" : text(editingPlan.duration_days)} /></label>
         <label>Equipos/terminales autorizados<input name="maxActivations" type="number" min="1" max="100" defaultValue={text(editingPlan?.max_activations) === "—" ? "1" : text(editingPlan?.max_activations)} required /></label>
+        <label>Días de uso sin conexión (0–365)<input name="offlineDays" type="number" min="0" max="365" defaultValue={editingPlan?.offline_days === null || editingPlan?.offline_days === undefined ? "7" : text(editingPlan.offline_days)} required /><small>Lo controla el administrador del CRM; al vencer, SICOVEN exige revalidación por internet.</small></label>
         <label>Precio o referencia comercial<input name="priceLabel" defaultValue={text(editingPlan?.price_label) === "—" ? "" : text(editingPlan?.price_label)} /></label>
         <label>Precio de licencia<input name="priceAmount" type="number" min="0" step="0.01" defaultValue={text(editingPlan?.price_amount) === "—" ? "0" : text(editingPlan?.price_amount)} /></label>
         <label>Periodicidad de licencia<select name="billingCycle" defaultValue={text(editingPlan?.billing_cycle) === "—" ? "once" : text(editingPlan?.billing_cycle)}><option value="once">Pago único / vitalicia</option><option value="monthly">Mensual</option><option value="yearly">Anual</option></select></label>
@@ -243,7 +244,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
         <label className="wide">Términos de uso<textarea name="terms" rows={3} defaultValue={text(editingPlan?.terms) === "—" ? "" : text(editingPlan?.terms)} /></label>
         <button disabled={busy}>{busy ? "Guardando…" : editingPlan ? "Guardar cambios" : "Crear tipo de licencia"}</button>{editingPlan && <button type="button" className="secondary" onClick={() => setEditingPlan(null)}>Cancelar edición</button>}
       </form>
-      {licenseTypes.length > 0 && <div className="table-wrap"><table><thead><tr><th>Plan</th><th>Vigencia</th><th>Equipos</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{licenseTypes.map(t => <tr key={text(t.id)}><td>{text(t.name)}</td><td>{t.duration_days === null ? "Vitalicia" : `${text(t.duration_days)} días`}</td><td>{text(t.max_activations)}</td><td>{text(t.price_amount)} {text(t.currency)} / {text(t.billing_cycle)}</td><td>{Number(t.active) === 1 ? "Activo" : "Inactivo"}</td><td><button type="button" className="secondary" onClick={() => setEditingPlan(t)}>Editar</button> <button type="button" className="danger" onClick={() => void togglePlan(t)}>{Number(t.active) === 1 ? "Desactivar" : "Activar"}</button></td></tr>)}</tbody></table></div>}
+      {licenseTypes.length > 0 && <div className="table-wrap"><table><thead><tr><th>Plan</th><th>Vigencia</th><th>Equipos</th><th>Días offline</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{licenseTypes.map(t => <tr key={text(t.id)}><td>{text(t.name)}</td><td>{t.duration_days === null ? "Vitalicia" : `${text(t.duration_days)} días`}</td><td>{text(t.max_activations)}</td><td>{text(t.offline_days ?? 7)}</td><td>{text(t.price_amount)} {text(t.currency)} / {text(t.billing_cycle)}</td><td>{Number(t.active) === 1 ? "Activo" : "Inactivo"}</td><td><button type="button" className="secondary" onClick={() => setEditingPlan(t)}>Editar</button> <button type="button" className="danger" onClick={() => void togglePlan(t)}>{Number(t.active) === 1 ? "Desactivar" : "Activar"}</button></td></tr>)}</tbody></table></div>}
     </section></>}
     {kind === "licencias" && selectedLicenseId && <section className="panel"><h2>Ampliar capacidad de licencia</h2><p className="muted">Licencia: {selectedLicenseId}. El identificador no cambia. Las ampliaciones solo aumentan el límite y quedan auditadas.</p><form className="form-grid" onSubmit={submitCapacity}>
       <label>Capacidad<select name="capacityKind" defaultValue="devices"><option value="devices">Equipos/dispositivos</option><option value="pos_terminals">Terminales POS</option><option value="users">Usuarios</option><option value="branches">Sucursales</option></select></label>

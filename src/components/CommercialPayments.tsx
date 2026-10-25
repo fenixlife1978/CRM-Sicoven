@@ -21,7 +21,7 @@ export default function CommercialPayments() {
   const [issued, setIssued] = useState<Record<string, { certificate: Record<string, unknown>; licenseKey: string }>>({});
 
   function downloadCertificate(certificate: Record<string, unknown>, licenseKey: string) {
-    const esc = (value: unknown) => String(value ?? "—").replace(/[&<>\"]/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\\\"":"&quot;" }[ch] || ch));
+    const esc = (value: unknown) => String(value ?? "—").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
     const rows: [string, unknown][] = [
       ["N.º de certificado", certificate.certificateId], ["Fecha de emisión", certificate.issuedAt],
       ["Titular", certificate.customerName], ["Documento", certificate.customerDocument || "Ver datos del cliente"],

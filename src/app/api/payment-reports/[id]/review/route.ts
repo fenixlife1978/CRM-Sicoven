@@ -27,9 +27,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     try {
       const result = await tx.execute({
         sql: `SELECT r.*,p.name AS product_name,p.edition AS product_edition,p.version AS product_version,
-          cp.name AS plan_name,cp.duration_days,cp.max_activations,cp.price_amount,cp.currency
+          cp.name AS plan_name,cp.duration_days,cp.max_activations,cp.price_amount,cp.currency,
+          cp.active AS plan_active,p.status AS product_status,b.active AS bank_active
           FROM payment_reports r JOIN products p ON p.id=r.product_id
-          JOIN commercial_plans cp ON cp.id=r.plan_id WHERE r.id=? LIMIT 1`,
+          JOIN commercial_plans cp ON cp.id=r.plan_id
+          JOIN payment_bank_accounts b ON b.id=r.destination_bank_id
+          WHERE r.id=? LIMIT 1`,
         args: [id]
       });
       const report = result.rows[0];
@@ -43,6 +46,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         await tx.execute({ sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),session.sub,"payment_report_rejected","payment_report",id,JSON.stringify({ note })] });
         await tx.commit();
         return NextResponse.json({ ok: true, status: "rejected" }, { headers: noStore });
+      }
+
+      if (Number(report.plan_active) !== 1 || String(report.product_status) !== "active" ||
+          Number(report.bank_active) !== 1 ||
+          Math.abs(Number(report.price_amount) - Number(report.amount)) > 0.005) {
+        await tx.rollback();
+        return NextResponse.json({
+          error: "No se puede aprobar: el producto, plan o cuenta receptora ya no está activo, o el monto no coincide con el precio vigente. Verifica el pago y la configuración comercial."
+        }, { status: 409, headers: noStore });
       }
 
       const type = String(report.customer_type);

@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     try {
       const keyHash = createHash("sha256").update(key).digest("hex");
       const found = await tx.execute({
-        sql: `SELECT l.id,l.status,l.starts_at,l.expires_at,l.max_activations,c.display_name AS customer_name,p.name AS product_name
+        sql: `SELECT l.id,l.status,l.starts_at,l.expires_at,l.max_activations,l.offline_days,c.display_name AS customer_name,p.name AS product_name
               FROM licenses l JOIN customers c ON c.id=l.customer_id JOIN products p ON p.id=l.product_id
               WHERE l.license_key_hash=? AND c.status='active' AND p.status='active' LIMIT 1`,
         args: [keyHash]
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         ok: true,
         activation: { id: activationId, status: "active" },
-        license: { id: String(license.id), customer: String(license.customer_name), product: String(license.product_name), status: "active", activationRequiresInternet: true }
+        license: { id: String(license.id), customer: String(license.customer_name), product: String(license.product_name), status: "active", activationRequiresInternet: true, offlineDays: Math.max(0, Math.min(365, Number(license.offline_days ?? 0))) }
       });
     } catch (error) {
       await tx.rollback().catch(() => undefined);

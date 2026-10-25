@@ -25,7 +25,7 @@ export default function BuySoftwarePage() {
   const [referenceLastSix,setReferenceLastSix] = useState("");
   const [paymentDate,setPaymentDate] = useState(new Date().toISOString().slice(0,10));
   const [sourceBank,setSourceBank] = useState("Banco de Venezuela");
-  const [destinationBankCode,setDestinationBankCode] = useState("");
+  const [destinationBankId,setDestinationBankId] = useState("");
   const [loading,setLoading] = useState(true);
   const [sending,setSending] = useState(false);
   const [error,setError] = useState("");
@@ -36,14 +36,14 @@ export default function BuySoftwarePage() {
       const d=await r.json(); if(!r.ok) throw new Error(d.error||"Catálogo no disponible");
       setProducts(d.products||[]);setPlans(d.plans||[]);setBanks(d.banks||[]);
       if(d.products?.[0]) setProductId(d.products[0].id);
-      if(d.banks?.[0]) setDestinationBankCode(d.banks[0].bank_code);
+      if(d.banks?.[0]) setDestinationBankId(d.banks[0].id);
     }).catch(e=>setError(e instanceof Error?e.message:"No se pudo cargar el catálogo.")).finally(()=>setLoading(false));
   },[]);
 
   const productPlans = plans.filter(p=>p.product_id===productId);
   const selectedPlan = productPlans.find(p=>p.id===planId) || productPlans[0];
-  const bankOptions = Array.from(new Map(banks.map(b=>[b.bank_code,b])).values());
-  const selectedBank = bankOptions.find(b=>b.bank_code===destinationBankCode) || bankOptions[0];
+  const bankOptions = banks;
+  const selectedBank = bankOptions.find(b=>b.id===destinationBankId) || bankOptions[0];
 
   useEffect(()=>{ if(productPlans.length && !productPlans.some(p=>p.id===planId)) setPlanId(productPlans[0].id); },[productId,plans,planId,productPlans]);
 
@@ -75,7 +75,7 @@ export default function BuySoftwarePage() {
       {customerType==="person"?<div className="fields"><label>Nombres<input required value={firstName} onChange={e=>setFirstName(e.target.value)} maxLength={100}/></label><label>Apellidos<input required value={lastName} onChange={e=>setLastName(e.target.value)} maxLength={100}/></label><label>Cédula de identidad<input required value={identityDocument} onChange={e=>setIdentityDocument(e.target.value)} maxLength={40}/></label><label>RIF personal (opcional)<input value={taxId} onChange={e=>setTaxId(e.target.value)} maxLength={40}/></label></div>:<div className="fields"><label className="full">Razón social<input required value={legalName} onChange={e=>setLegalName(e.target.value)} maxLength={200}/></label><label>RIF<input required value={taxId||identityDocument} onChange={e=>{setTaxId(e.target.value);setIdentityDocument(e.target.value)}} maxLength={40}/></label><label>Documento / RIF para registro<input required value={identityDocument} onChange={e=>setIdentityDocument(e.target.value)} maxLength={40}/></label></div>}
       <div className="fields"><label>Teléfono<input required value={phone} onChange={e=>setPhone(e.target.value)} maxLength={40} inputMode="tel"/></label><label>Correo electrónico (opcional)<input type="email" value={email} onChange={e=>setEmail(e.target.value)} maxLength={254}/></label></div>
       </section>
-      <section className="panel"><h2>3. Datos del Pago Móvil</h2>{banks.length===0?<p className="notice">El administrador todavía no ha configurado las cuentas receptoras.</p>:<><label>Banco receptor<select required value={selectedBank?.bank_code||""} onChange={e=>setDestinationBankCode(e.target.value)}>{bankOptions.map(b=><option key={b.bank_code} value={b.bank_code}>{b.bank_name}</option>)}</select></label>{selectedBank&&<div className="bankDetails"><div className="bankBrand"><img src={selectedBank.bank_code==="BDV"?"/banks/banco_de_venezuela_64.png":"/banks/banco_mercantil_64.png"} alt={selectedBank.bank_name}/><strong>Datos para Pago Móvil · {selectedBank.bank_name}</strong></div><div className="bankDetailGrid"><p><small>Documento asociado</small><strong>{selectedBank.identity_document}</strong></p><p><small>Teléfono afiliado</small><strong>{selectedBank.phone_number}</strong></p>{selectedBank.account_number&&<p><small>Cuenta bancaria</small><strong>{selectedBank.account_number}</strong></p>}</div><p className="fine">Realiza el pago a estos datos y luego registra la referencia de la operación.</p></div>}
+      <section className="panel"><h2>3. Datos del Pago Móvil</h2>{banks.length===0?<p className="notice">El administrador todavía no ha configurado las cuentas receptoras.</p>:<><label>Banco receptor<select required value={selectedBank?.id||""} onChange={e=>setDestinationBankId(e.target.value)}>{bankOptions.map(b=><option key={b.id} value={b.id}>{b.bank_name} · {b.phone_number}{b.account_number?` · ${b.account_number.slice(-4)}`:""}</option>)}</select></label>{selectedBank&&<div className="bankDetails"><div className="bankBrand">{selectedBank.bank_code==="BDV"?<img src="/banks/banco_de_venezuela_64.png" alt="Banco de Venezuela"/>:selectedBank.bank_code==="0105"?<img src="/banks/banco_mercantil_64.png" alt="Banco Mercantil"/>:null}<strong>Datos para Pago Móvil · {selectedBank.bank_name}</strong></div><div className="bankDetailGrid"><p><small>Documento asociado</small><strong>{selectedBank.identity_document}</strong></p><p><small>Teléfono afiliado</small><strong>{selectedBank.phone_number}</strong></p>{selectedBank.account_number&&<p><small>Cuenta bancaria</small><strong>{selectedBank.account_number}</strong></p>}</div><p className="fine">Realiza el pago a estos datos y luego registra la referencia de la operación.</p></div>}
       <div className="fields"><label>Monto pagado<input required type="number" min="0.01" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} inputMode="decimal"/><small>Precio del plan: {selectedPlan?Number(selectedPlan.price_amount).toLocaleString("es-VE",{minimumFractionDigits:2,maximumFractionDigits:2})+" "+selectedPlan.currency:"—"}</small></label><label>Fecha del pago<input required type="date" value={paymentDate} onChange={e=>setPaymentDate(e.target.value)} max={new Date().toISOString().slice(0,10)}/></label><label>Banco de origen<select value={sourceBank} onChange={e=>setSourceBank(e.target.value)}><option>Banco de Venezuela</option><option>Mercantil</option><option>Otro banco nacional</option></select></label><label>Últimos 6 dígitos de referencia<input required value={referenceLastSix} onChange={e=>setReferenceLastSix(e.target.value.replace(/\D/g,"").slice(0,6))} inputMode="numeric" pattern="[0-9]{6}" minLength={6} maxLength={6}/></label></div>
       </>}
       <p className="warning">Enviar este formulario no confirma el pago ni activa una licencia automáticamente. El administrador verificará el abono antes de emitirla.</p>

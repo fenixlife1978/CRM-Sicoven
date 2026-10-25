@@ -16,10 +16,10 @@ export async function POST(request: NextRequest) {
   try {
     await bootstrapDatabase();
     const body: unknown = await request.json();
-    if (!body || typeof body !== "object") return NextResponse.json({ error: "Solicitud inválida." }, { status: 400 });
+    if (!body || typeof body !== "object") return NextResponse.json({ error: "Solicitud inválida." }, { status: 400, headers: { "Cache-Control": "no-store" } });
     const { email, password } = body as { email?: unknown; password?: unknown };
     if (typeof email !== "string" || typeof password !== "string" || !email.trim() || !password || email.length > 254 || password.length > 1024) {
-      return NextResponse.json({ error: "Introduce correo y contraseña." }, { status: 400 });
+      return NextResponse.json({ error: "Introduce correo y contraseña." }, { status: 400, headers: { "Cache-Control": "no-store" } });
     }
 
     const normalizedEmail = email.trim().toLowerCase();

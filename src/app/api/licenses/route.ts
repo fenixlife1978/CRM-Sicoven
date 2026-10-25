@@ -13,7 +13,7 @@ export async function GET() {
     await bootstrapDatabase();
     const result = await getDb().execute({
       sql: `SELECT l.id,l.customer_id,l.product_id,l.license_key_hint,l.status,l.starts_at,l.expires_at,l.max_activations,l.created_at,
-                   l.license_type_name,l.billing_cycle,l.billing_amount,l.currency,l.next_billing_at,c.display_name AS customer_name,c.email AS customer_email,c.phone AS customer_phone,c.address AS customer_address,
+                   l.license_type_name,l.offline_days,l.billing_cycle,l.billing_amount,l.currency,l.next_billing_at,c.display_name AS customer_name,c.email AS customer_email,c.phone AS customer_phone,c.address AS customer_address,
                    p.name AS product_name,p.edition AS product_edition,p.version AS product_version,l.license_terms_json,
                    (SELECT COUNT(*) FROM activations a WHERE a.license_id=l.id AND a.status='active') AS active_activations
             FROM licenses l JOIN customers c ON c.id=l.customer_id JOIN products p ON p.id=l.product_id

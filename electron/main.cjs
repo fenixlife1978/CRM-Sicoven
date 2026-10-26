@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Electron main process uses CommonJS in a .cjs entrypoint. */
 'use strict';
 
 const { app, BrowserWindow, shell } = require('electron');

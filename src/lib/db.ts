@@ -107,6 +107,16 @@ export async function ensureSchema() {
   ], "write");
 
   // Additive migrations for existing production databases; safe to run repeatedly.
+  const productColumns = await db.execute("PRAGMA table_info(products)");
+  const existingProductColumns = new Set(productColumns.rows.map((column) => String(column.name)));
+  if (!existingProductColumns.has("product_code")) await db.execute("ALTER TABLE products ADD COLUMN product_code TEXT");
+  await db.execute(`UPDATE products SET product_code = 'PRODUCT_' || UPPER(REPLACE(id, '-', '_'))
+    WHERE product_code IS NULL OR TRIM(product_code) = ''`);
+  await db.execute(`UPDATE products SET product_code = 'SICOVEN_DESKTOP'
+    WHERE id = (SELECT id FROM products WHERE LOWER(TRIM(name)) LIKE 'sicoven%'
+      ORDER BY created_at, id LIMIT 1)
+      AND NOT EXISTS (SELECT 1 FROM products WHERE product_code = 'SICOVEN_DESKTOP')`);
+  await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS products_product_code_unique ON products(product_code) WHERE product_code IS NOT NULL AND TRIM(product_code) <> ''");
   const activationColumns = await db.execute("PRAGMA table_info(activations)");
   const existingActivationColumns = new Set(activationColumns.rows.map((column) => String(column.name)));
   if (!existingActivationColumns.has("device_fingerprint")) await db.execute("ALTER TABLE activations ADD COLUMN device_fingerprint TEXT");

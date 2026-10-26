@@ -11,6 +11,7 @@ export default function BuySoftwarePage() {
   const [products,setProducts] = useState<Product[]>([]);
   const [plans,setPlans] = useState<Plan[]>([]);
   const [banks,setBanks] = useState<Bank[]>([]);
+  const [whatsappAdminPhone,setWhatsappAdminPhone] = useState("04125773996");
   const [productId,setProductId] = useState("");
   const [planId,setPlanId] = useState("");
   const [customerType,setCustomerType] = useState<"person"|"company">("person");
@@ -34,7 +35,7 @@ export default function BuySoftwarePage() {
   useEffect(() => {
     fetch("/api/commercial-catalog",{cache:"no-store"}).then(async r=>{
       const d=await r.json(); if(!r.ok) throw new Error(d.error||"Catálogo no disponible");
-      setProducts(d.products||[]);setPlans(d.plans||[]);setBanks(d.banks||[]);
+      setProducts(d.products||[]);setPlans(d.plans||[]);setBanks(d.banks||[]);setWhatsappAdminPhone(d.whatsappAdminPhone||"04125773996");
       if(d.products?.[0]) setProductId(d.products[0].id);
       if(d.banks?.[0]) setDestinationBankId(d.banks[0].id);
     }).catch(e=>setError(e instanceof Error?e.message:"No se pudo cargar el catálogo.")).finally(()=>setLoading(false));
@@ -80,7 +81,7 @@ export default function BuySoftwarePage() {
       </>}
       <p className="warning">Enviar este formulario no confirma el pago ni activa una licencia automáticamente. El administrador verificará el abono antes de emitirla.</p>
       {error&&<p className="error" role="alert">{error}</p>}{success&&<p className="success" role="status">{success}</p>}
-      {success&&<div className="whatsappNotice"><p>Para agilizar la revisión, puedes avisar al administrador por WhatsApp. Número mostrado por seguridad: <strong>0412 ••• 3996</strong>.</p><a className="whatsappButton" target="_blank" rel="noopener noreferrer" href={`https://wa.me/584125773996?text=${encodeURIComponent([
+      {success&&<div className="whatsappNotice"><p>Para agilizar la revisión, puedes avisar al administrador por WhatsApp. Número mostrado por seguridad: <strong>{whatsappAdminPhone.length>=7?whatsappAdminPhone.slice(0,4)+" ••• "+whatsappAdminPhone.slice(-4):"administración"}</strong>.</p><a className="whatsappButton" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${whatsappAdminPhone.replace(/\D/g,"").replace(/^0/,"58")}?text=${encodeURIComponent([
         "Hola, EFASfreelancer. He reportado un pago en CRM-SICOVEN y solicito su verificación.",
         `Titular: ${customerType==="person"?firstName+" "+lastName:legalName}`,
         `Documento/RIF: ${identityDocument}`,

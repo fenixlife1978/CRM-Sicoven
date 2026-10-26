@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
               JOIN customers c ON c.id=l.customer_id
               JOIN products p ON p.id=l.product_id
               LEFT JOIN license_types lt ON lt.id=l.license_type_id
-              WHERE l.license_key_hash=? AND c.status='active' AND p.status='active' LIMIT 1`,
+              WHERE l.license_key_hash=? AND c.status='active' AND p.status='active' AND LOWER(TRIM(p.name)) LIKE 'sicoven%' LIMIT 1`,
         args: [keyHash]
       });
       const license = found.rows[0];

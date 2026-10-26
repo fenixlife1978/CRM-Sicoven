@@ -15,12 +15,13 @@ export async function GET() {
   try {
     await bootstrapDatabase();
     const db=getDb();
-    const [products,plans,banks]=await Promise.all([
+    const [products,plans,banks,whatsapp]=await Promise.all([
       db.execute("SELECT id,name,edition,status FROM products ORDER BY name"),
       db.execute("SELECT id,product_id,name,description,price_amount,currency,duration_days,max_activations,active FROM commercial_plans ORDER BY created_at DESC"),
-      db.execute("SELECT id,bank_code,bank_name,identity_document,phone_number,account_number,active FROM payment_bank_accounts ORDER BY created_at DESC")
+      db.execute("SELECT id,bank_code,bank_name,identity_document,phone_number,account_number,active FROM payment_bank_accounts ORDER BY created_at DESC"),
+      db.execute("SELECT setting_value FROM commercial_settings WHERE setting_key='whatsapp_admin_phone' LIMIT 1")
     ]);
-    return NextResponse.json({products:products.rows,plans:plans.rows,banks:banks.rows},{headers:noStore});
+    return NextResponse.json({products:products.rows,plans:plans.rows,banks:banks.rows,whatsappAdminPhone:String(whatsapp.rows[0]?.setting_value||"04125773996")},{headers:noStore});
   } catch { return NextResponse.json({error:"No se pudo cargar la configuración comercial."},{status:503,headers:noStore}); }
 }
 
@@ -35,6 +36,13 @@ export async function POST(request:NextRequest) {
     const d=body as Record<string,unknown>;
     const action=clean(d.action,30);
     const db=getDb();
+    if(action==="set-whatsapp-admin-phone") {
+      const phone=String(d.phone||"").replace(/[^0-9]/g,"");
+      if(!/^0?4(?:12|14|16|24|26)\d{7}$/.test(phone)) return NextResponse.json({error:"Introduce un teléfono móvil venezolano válido, por ejemplo 04125773996."},{status:400,headers:noStore});
+      await db.execute({sql:"INSERT INTO commercial_settings(setting_key,setting_value,updated_at) VALUES('whatsapp_admin_phone',?,CURRENT_TIMESTAMP) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value,updated_at=CURRENT_TIMESTAMP",args:[phone]});
+      await db.execute({sql:"INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",args:[randomUUID(),session.sub,"commercial_whatsapp_updated","commercial_settings","whatsapp_admin_phone",JSON.stringify({phoneLastFour:phone.slice(-4)})]});
+      return NextResponse.json({ok:true},{headers:noStore});
+    }
     if(action==="create-plan") {
       const productId=clean(d.productId,80), name=clean(d.name,100), description=clean(d.description,500);
       const price=Number(d.priceAmount), currency=clean(d.currency,3).toUpperCase();

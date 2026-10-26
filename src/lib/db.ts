@@ -117,6 +117,7 @@ export async function ensureSchema() {
       ORDER BY created_at, id LIMIT 1)
       AND NOT EXISTS (SELECT 1 FROM products WHERE product_code = 'SICOVEN_DESKTOP')`);
   await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS products_product_code_unique ON products(product_code) WHERE product_code IS NOT NULL AND TRIM(product_code) <> ''");
+  await db.execute("CREATE TRIGGER IF NOT EXISTS products_assign_product_code\nAFTER INSERT ON products\nWHEN NEW.product_code IS NULL OR TRIM(NEW.product_code) = ''\nBEGIN\n  UPDATE products SET product_code = CASE\n    WHEN LOWER(TRIM(NEW.name)) LIKE 'sicoven%'\n      AND NOT EXISTS (SELECT 1 FROM products WHERE product_code = 'SICOVEN_DESKTOP')\n    THEN 'SICOVEN_DESKTOP'\n    ELSE 'PRODUCT_' || UPPER(REPLACE(NEW.id, '-', '_'))\n  END\n  WHERE id = NEW.id;\nEND");
   const activationColumns = await db.execute("PRAGMA table_info(activations)");
   const existingActivationColumns = new Set(activationColumns.rows.map((column) => String(column.name)));
   if (!existingActivationColumns.has("device_fingerprint")) await db.execute("ALTER TABLE activations ADD COLUMN device_fingerprint TEXT");

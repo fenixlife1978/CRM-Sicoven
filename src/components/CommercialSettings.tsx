@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent,useEffect,useState } from "react";
+import { FormEvent,useCallback,useEffect,useState } from "react";
 
 type Product={id:string;name:string;edition?:string|null;status:string};
 type Plan={id:string;product_id:string;name:string;description?:string|null;price_amount:number;currency:string;duration_days?:number|null;max_activations:number;active:number};
@@ -12,8 +12,8 @@ export default function CommercialSettings(){
  const [productId,setProductId]=useState(""),[planName,setPlanName]=useState(""),[planDescription,setPlanDescription]=useState(""),[price,setPrice]=useState(""),[currency,setCurrency]=useState("USD"),[duration,setDuration]=useState(""),[max,setMax]=useState("1");
  const [bankCode,setBankCode]=useState("BDV"),[identity,setIdentity]=useState(""),[phone,setPhone]=useState(""),[account,setAccount]=useState(""),[editingBankId,setEditingBankId]=useState<string|null>(null);
  const [error,setError]=useState(""),[success,setSuccess]=useState(""),[busy,setBusy]=useState(false);
- async function load(){const r=await fetch("/api/commercial-settings",{cache:"no-store"});const d=await r.json();if(!r.ok)throw new Error(d.error||"No se pudo cargar.");setProducts(d.products||[]);setPlans(d.plans||[]);setBanks(d.banks||[]);if(!productId&&d.products?.[0])setProductId(d.products[0].id);}
- useEffect(()=>{void load().catch(e=>setError(e.message));},[]);
+ const load=useCallback(async()=>{const r=await fetch("/api/commercial-settings",{cache:"no-store"});const d=await r.json();if(!r.ok)throw new Error(d.error||"No se pudo cargar.");setProducts(d.products||[]);setPlans(d.plans||[]);setBanks(d.banks||[]);if(d.products?.[0])setProductId(current=>current||d.products[0].id);},[]);
+ useEffect(()=>{void load().catch(e=>setError(e instanceof Error?e.message:"No se pudo cargar."));},[load]);
  async function submit(e:FormEvent,action:string){
   e.preventDefault();setError("");setSuccess("");setBusy(true);
   const data=action==="create-plan"?{action,productId,name:planName,description:planDescription,priceAmount:Number(price),currency,durationDays:duration===""?null:Number(duration),maxActivations:Number(max)}:{action:editingBankId?"update-bank":action,id:editingBankId,bankCode,identityDocument:identity,phoneNumber:phone,accountNumber:account};

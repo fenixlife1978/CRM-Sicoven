@@ -14,6 +14,7 @@ export function getDb(): Client {
 export async function ensureSchema() {
   const db = getDb();
   await db.batch([
+    { sql: `CREATE TABLE IF NOT EXISTS commercial_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
     { sql: `CREATE TABLE IF NOT EXISTS crm_users (
       id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
       role TEXT NOT NULL CHECK(role IN ('admin','operator','viewer')),

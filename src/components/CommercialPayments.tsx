@@ -11,12 +11,13 @@ type Report = {
   destination_bank: string; status: string; created_at: string; review_note?: string | null;
 };
 
-function decodeVapidKey(value: string): Uint8Array {
+function decodeVapidKey(value: string): ArrayBuffer {
   const padding = "=".repeat((4 - value.length % 4) % 4);
   const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = window.atob(base64);
-  const output = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i += 1) output[i] = raw.charCodeAt(i);
+  const output = new ArrayBuffer(raw.length);
+  const bytes = new Uint8Array(output);
+  for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
   return output;
 }
 

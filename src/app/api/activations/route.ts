@@ -36,10 +36,11 @@ export async function POST(request: NextRequest) {
     if (!body || typeof body !== "object") return NextResponse.json({ error: "Solicitud inválida." }, { status: 400, headers: NO_STORE });
     const data = body as Record<string, unknown>;
     const key = typeof data.licenseKey === "string" ? data.licenseKey.trim() : "";
+    const productCode = typeof data.productCode === "string" ? data.productCode.trim().toUpperCase() : "";
     const installationId = typeof data.installationId === "string" ? data.installationId.trim() : "";
     const deviceLabel = typeof data.deviceLabel === "string" ? data.deviceLabel.trim().slice(0, 120) : null;
-    if (!key || key.length > 120 || !/^[a-zA-Z0-9-]+$/.test(key) || !installationId || installationId.length > 200) {
-      return NextResponse.json({ error: "Clave de licencia e identificador de instalación son obligatorios." }, { status: 400, headers: NO_STORE });
+    if (!key || key.length > 120 || !/^[a-zA-Z0-9-]+$/.test(key) || !installationId || installationId.length > 200 || !/^[A-Z0-9_]{3,80}$/.test(productCode)) {
+      return NextResponse.json({ error: "Clave de licencia, código de producto e identificador de instalación son obligatorios." }, { status: 400, headers: NO_STORE });
     }
 
     const db = getDb();
@@ -69,13 +70,13 @@ export async function POST(request: NextRequest) {
       const found = await tx.execute({
         sql: `SELECT l.id,l.status,l.starts_at,l.expires_at,l.max_activations,
                      COALESCE(lt.offline_days,l.offline_days,7) AS offline_days,
-                     c.display_name AS customer_name,p.name AS product_name
+                     c.display_name AS customer_name,p.name AS product_name,p.product_code AS product_code
               FROM licenses l
               JOIN customers c ON c.id=l.customer_id
               JOIN products p ON p.id=l.product_id
               LEFT JOIN license_types lt ON lt.id=l.license_type_id
-              WHERE l.license_key_hash=? AND c.status='active' AND p.status='active' AND LOWER(TRIM(p.name)) LIKE 'sicoven%' LIMIT 1`,
-        args: [keyHash]
+              WHERE l.license_key_hash=? AND c.status='active' AND p.status='active' AND p.product_code=? LIMIT 1`,
+        args: [keyHash, productCode]
       });
       const license = found.rows[0];
       if (!license || ["revoked","expired"].includes(String(license.status))) {
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         ok: true,
         activation: { id: activationId, status: "active" },
-        license: { id: String(license.id), customer: String(license.customer_name), product: String(license.product_name), status: "active", activationRequiresInternet: true, offlineDays: Math.max(1, Math.min(30, Number(license.offline_days ?? 7))) }
+        license: { id: String(license.id), customer: String(license.customer_name), product: String(license.product_name), productCode: String(license.product_code), status: "active", activationRequiresInternet: true, offlineDays: Math.max(1, Math.min(30, Number(license.offline_days ?? 7))) }
       }, { headers: NO_STORE });
     } catch (error) {
       await tx.rollback().catch(() => undefined);

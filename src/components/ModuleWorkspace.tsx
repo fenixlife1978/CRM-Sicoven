@@ -13,9 +13,6 @@ const config: Record<Kind, { title: string; endpoint: string; collection: string
   activaciones: { title: "Activaciones", endpoint: "/api/activations", collection: "activations" }
 };
 
-function pdfEscape(value: string) {
-  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, "?").replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
-}
 
 function downloadCertificate(certificate: Record<string, unknown>) {
   const terms = (certificate.terms && typeof certificate.terms === "object" ? certificate.terms : {}) as Record<string, unknown>;

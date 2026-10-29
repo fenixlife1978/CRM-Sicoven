@@ -10,25 +10,16 @@ export async function POST(request: NextRequest) {
   try {
     await bootstrapDatabase();
     const body = await request.json().catch(() => ({}));
-    const reportId = typeof body.reportId === "string" ? body.reportId.trim() : "";
     const identityDocument = typeof body.identityDocument === "string" ? body.identityDocument.trim().toUpperCase() : "";
     const referenceLastSix = typeof body.referenceLastSix === "string" ? body.referenceLastSix.trim() : "";
 
-    const db = getDb();
-    let querySql = "";
-    let queryArgs: (string | number)[] = [];
+    // Do not expose payment details or certificates by report ID alone.
+    if (!identityDocument || !/^\d{6}$/.test(referenceLastSix)) {
+      return NextResponse.json({ error: "Ingresa la Cédula/RIF y los últimos 6 dígitos de referencia." }, { status: 400, headers: noStore });
+    }
 
-    if (reportId) {
-      querySql = `SELECT r.id, r.status, r.review_note, r.reviewed_at, r.created_at, r.amount, r.reference_last_six,
-        r.payment_date, r.customer_type, r.first_name, r.last_name, r.legal_name, r.identity_document,
-        r.certificate_json, p.name AS product_name, cp.name AS plan_name
-        FROM payment_reports r
-        LEFT JOIN products p ON p.id = r.product_id
-        LEFT JOIN commercial_plans cp ON cp.id = r.plan_id
-        WHERE r.id = ? LIMIT 1`;
-      queryArgs = [reportId];
-    } else if (identityDocument && referenceLastSix) {
-      querySql = `SELECT r.id, r.status, r.review_note, r.reviewed_at, r.created_at, r.amount, r.reference_last_six,
+    const db = getDb();
+    const querySql = `SELECT r.id, r.status, r.review_note, r.reviewed_at, r.created_at, r.amount, r.reference_last_six,
         r.payment_date, r.customer_type, r.first_name, r.last_name, r.legal_name, r.identity_document,
         r.certificate_json, p.name AS product_name, cp.name AS plan_name
         FROM payment_reports r
@@ -36,10 +27,7 @@ export async function POST(request: NextRequest) {
         LEFT JOIN commercial_plans cp ON cp.id = r.plan_id
         WHERE (UPPER(r.identity_document) = ? OR UPPER(r.tax_id) = ?) AND r.reference_last_six = ?
         ORDER BY r.created_at DESC LIMIT 1`;
-      queryArgs = [identityDocument, identityDocument, referenceLastSix];
-    } else {
-      return NextResponse.json({ error: "Ingresa el ID de reporte o la Cédula/RIF junto con los últimos 6 dígitos de referencia." }, { status: 400, headers: noStore });
-    }
+    const queryArgs: (string | number)[] = [identityDocument, identityDocument, referenceLastSix];
 
     const result = await db.execute({ sql: querySql, args: queryArgs });
     const report = result.rows[0];

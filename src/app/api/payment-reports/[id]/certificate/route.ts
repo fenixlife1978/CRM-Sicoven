@@ -10,6 +10,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   try {
     await bootstrapDatabase();
     const { id } = await context.params;
+    const identityDocument = (request.nextUrl.searchParams.get("identityDocument") || "").trim().toUpperCase();
+    const referenceLastSix = (request.nextUrl.searchParams.get("referenceLastSix") || "").trim();
+    if (!identityDocument || !/^\d{6}$/.test(referenceLastSix)) {
+      return NextResponse.json({ error: "Se requiere Cédula/RIF y los últimos 6 dígitos de referencia para consultar el certificado." }, { status: 400, headers: noStore });
+    }
+
     if (!id || typeof id !== "string") {
       return NextResponse.json({ error: "Identificador de reporte requerido." }, { status: 400, headers: noStore });
     }
@@ -22,8 +28,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
         FROM payment_reports r
         LEFT JOIN products p ON p.id = r.product_id
         LEFT JOIN commercial_plans cp ON cp.id = r.plan_id
-        WHERE r.id = ? LIMIT 1`,
-      args: [id]
+        WHERE r.id = ? AND (UPPER(r.identity_document) = ? OR UPPER(r.tax_id) = ?) AND r.reference_last_six = ? LIMIT 1`,
+      args: [id, identityDocument, identityDocument, referenceLastSix]
     });
 
     const report = result.rows[0];

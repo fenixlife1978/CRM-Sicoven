@@ -281,7 +281,7 @@ export default function BuySoftwarePage() {
         const parsed = JSON.parse(saved);
         if (parsed?.reportId) {
           setActiveReport(parsed);
-          checkReportStatus(parsed.reportId);
+          checkReportStatus(parsed.reportId, parsed.identityDocument, parsed.referenceLastSix);
         }
       }
     } catch {
@@ -307,11 +307,15 @@ export default function BuySoftwarePage() {
     }
   };
 
-  async function checkReportStatus(reportId: string) {
+  async function checkReportStatus(reportId: string, identityDocument = activeReport?.identityDocument, referenceLastSix = activeReport?.referenceLastSix) {
     if (!reportId) return;
     setCheckingStatus(true);
     try {
-      const res = await fetch(`/api/payment-reports/${reportId}/certificate`, { cache: "no-store" });
+      const reportIdentity = identityDocument || "";
+      const reportReference = referenceLastSix || "";
+      if (!reportIdentity || !/^\d{6}$/.test(reportReference)) return;
+      const params = new URLSearchParams({ identityDocument: reportIdentity, referenceLastSix: reportReference });
+      const res = await fetch(`/api/payment-reports/${reportId}/certificate?${params.toString()}`, { cache: "no-store" });
       const data = await res.json();
       if (res.ok && data.ok) {
         setActiveReport((prev) => {

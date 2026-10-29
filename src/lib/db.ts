@@ -182,6 +182,14 @@ export async function ensureSchema() {
   )`);
   await db.execute("CREATE INDEX IF NOT EXISTS admin_push_subscriptions_user_idx ON admin_push_subscriptions(user_id)");
 
+  const paymentReferenceColumns = await db.execute("PRAGMA table_info(payment_reports)");
+  const existingPaymentReferenceColumns = new Set(paymentReferenceColumns.rows.map((column) => String(column.name)));
+  if (!existingPaymentReferenceColumns.has("reference_full")) {
+    await db.execute("ALTER TABLE payment_reports ADD COLUMN reference_full TEXT");
+  }
+  // Backfill legacy reports with their known suffix only; never fabricate missing digits.
+  await db.execute("UPDATE payment_reports SET reference_full = NULL WHERE reference_full = ''");
+
   const reportColumns = await db.execute("PRAGMA table_info(payment_reports)");
   const existingReportColumns = new Set(reportColumns.rows.map((column) => String(column.name)));
   if (!existingReportColumns.has("certificate_json")) await db.execute("ALTER TABLE payment_reports ADD COLUMN certificate_json TEXT");

@@ -163,7 +163,7 @@ export default function BuySoftwarePage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [amount, setAmount] = useState("");
-  const [referenceLastSix, setReferenceLastSix] = useState("");
+  const [referenceFull, setReferenceFull] = useState("");
   const [paymentDate, setPaymentDate] = useState(
     new Intl.DateTimeFormat("en-CA", { timeZone: "America/Caracas", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())
   );
@@ -352,7 +352,7 @@ export default function BuySoftwarePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           identityDocument: lookupDoc,
-          referenceLastSix: lookupRef
+          referenceFull: lookupRef
         })
       });
       const data = await res.json();
@@ -408,7 +408,7 @@ export default function BuySoftwarePage() {
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
         amount: Number(amount),
-        referenceLastSix: referenceLastSix.trim(),
+        referenceFull: referenceFull.trim(),
         paymentDate,
         sourceBank,
         destinationBankId: selectedBank?.id || banks[0]?.id
@@ -434,7 +434,7 @@ export default function BuySoftwarePage() {
         productName: products.find((p) => p.id === productId)?.name || "SICOVEN",
         planName: selectedPlan.name,
         amount: Number(amount),
-        referenceLastSix,
+        referenceFull,
         paymentDate
       };
       setActiveReport(newReport);
@@ -1221,13 +1221,13 @@ export default function BuySoftwarePage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                        Referencia / Nº de operación *
+                        Referencia bancaria completa *
                       </label>
                       <input
                         required
                         type="text"
-                        value={referenceLastSix}
-                        onChange={(e) => setReferenceLastSix(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        value={referenceFull}
+                        onChange={(e) => setReferenceFull(e.target.value.replace(/\D/g, "").slice(0, 30))}
                         placeholder="Ej. 123456"
                         className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                       />
@@ -1235,16 +1235,16 @@ export default function BuySoftwarePage() {
 
                     <div>
                       <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                        Últimos 6 dígitos de la referencia *
+                        
                       </label>
                       <input
                         required
                         type="text"
-                        maxLength={6}
-                        pattern="[0-9]{6}"
+                        maxLength={30}
+                        pattern="[0-9]{6,30}"
                         value={referenceLastSix}
                         onChange={(e) => setReferenceLastSix(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        placeholder="Ej. 789012"
+                        placeholder="Todos los dígitos de la referencia"
                         className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono tracking-widest"
                       />
                     </div>
@@ -1273,7 +1273,7 @@ export default function BuySoftwarePage() {
                       `Documento/RIF: ${identityDocument}`,
                       `Plan: ${selectedPlan?.name}`,
                       `Monto: ${amount} USD`,
-                      `Referencia (últimos 6): ${referenceLastSix}`,
+                      `Referencia bancaria completa: ${referenceFull}`,
                       "Quedo a la espera de la validación y emisión de mi certificado."
                     ].join("\n"))}`}
                     target="_blank"
@@ -1644,14 +1644,14 @@ export default function BuySoftwarePage() {
 
               <div>
                 <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                  Últimos 6 dígitos de la referencia de pago *
+                  Referencia bancaria completa *
                 </label>
                 <input
                   required
                   type="text"
                   maxLength={6}
                   value={lookupRef}
-                  onChange={(e) => setLookupRef(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) => setLookupRef(e.target.value.replace(/\D/g, "").slice(0, 30))}
                   placeholder="Ej. 789012"
                   className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />

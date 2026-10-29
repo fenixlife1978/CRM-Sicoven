@@ -8,12 +8,10 @@ import {
   Download,
   Printer,
   RefreshCw,
-  Search,
   Lock,
   Sparkles,
   X,
   AlertCircle,
-  Monitor,
   CheckCircle2,
   Copy
 } from "lucide-react";
@@ -155,13 +153,6 @@ export default function BuySoftwarePage() {
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
-
-  // Search by document / reference modal
-  const [showLookupModal, setShowLookupModal] = useState(false);
-  const [lookupDoc, setLookupDoc] = useState("");
-  const [lookupRef, setLookupRef] = useState("");
-  const [lookupError, setLookupError] = useState("");
-  const [lookupLoading, setLookupLoading] = useState(false);
 
   // Real-time reference validation
   const cleanReference = referenceFull.trim();
@@ -331,50 +322,6 @@ export default function BuySoftwarePage() {
     }
   }
 
-  async function handleLookup(e: FormEvent) {
-    e.preventDefault();
-    setLookupError("");
-    setLookupLoading(true);
-    try {
-      const res = await fetch("/api/payment-reports/check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          identityDocument: lookupDoc,
-          referenceFull: lookupRef,
-          referenceLastSix: lookupRef.slice(-6)
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "No se encontró el reporte.");
-
-      const matched: ActiveReport = {
-        reportId: data.reportId,
-        status: data.status,
-        customerName: data.certificate?.customerName || "Titular",
-        identityDocument: data.certificate?.identityDocument || lookupDoc,
-        phone: data.certificate?.customerPhone || "",
-        email: data.certificate?.customerEmail || "",
-        productName: data.productName || "SICOVEN",
-        planName: data.planName || "Plan",
-        amount: data.amount || 0,
-        referenceLastSix: data.referenceLastSix || lookupRef.slice(-6),
-        referenceFull: lookupRef,
-        paymentDate: data.paymentDate || "",
-        reviewNote: data.reviewNote,
-        reviewedAt: data.reviewedAt,
-        certificate: data.certificate
-      };
-      setActiveReport(matched);
-      localStorage.setItem("crm_sicoven_last_report", JSON.stringify(matched));
-      setShowLookupModal(false);
-    } catch (err) {
-      setLookupError(err instanceof Error ? err.message : "Error al buscar reporte");
-    } finally {
-      setLookupLoading(false);
-    }
-  }
-
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError("");
@@ -469,23 +416,14 @@ export default function BuySoftwarePage() {
       {/* Top Header Bar matching Image 1 */}
       <header className="bg-[#0c243e] text-white py-2.5 px-4 sm:px-8 border-b border-[#183659] shadow-sm sticky top-0 z-40">
         <div className="max-w-[1280px] mx-auto flex items-center justify-between gap-4">
-          {/* Logo with SICOVEN Bar Chart Icon & Subtext */}
+          {/* Logo Horizontal Original de EFASfreelancer */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              {/* Cyan / Blue Ascending Bars Icon matching image */}
-              <div className="flex items-end gap-[3px] h-6 px-1">
-                <span className="w-1.5 h-3 bg-sky-400 rounded-xs" />
-                <span className="w-1.5 h-4.5 bg-blue-400 rounded-xs" />
-                <span className="w-1.5 h-6 bg-blue-300 rounded-xs" />
-              </div>
-              <div className="leading-tight">
-                <div className="font-black text-lg tracking-wider text-white">
-                  SICOVEN
-                </div>
-                <div className="text-[9px] text-sky-200/90 font-bold tracking-widest uppercase">
-                  CRM · SISTEMAS
-                </div>
-              </div>
+            <div className="bg-white px-3 py-1.5 rounded-lg shadow-xs flex items-center">
+              <img
+                src="/efasfreelancer-logo.svg"
+                alt="EFASfreelancer Soluciones Digitales"
+                className="h-7 sm:h-8 w-auto object-contain"
+              />
             </div>
           </div>
 
@@ -523,31 +461,22 @@ export default function BuySoftwarePage() {
             >
               <span>Soporte</span>
             </a>
-            <button
-              onClick={() => setShowLookupModal(true)}
+            <a
+              href={`https://wa.me/${whatsappAdminPhone.replace(/\D/g, "").replace(/^0/, "58")}?text=${encodeURIComponent("Hola, deseo más información sobre los planes de SICOVEN.")}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="hover:text-white transition-colors cursor-pointer"
             >
               Contacto
-            </button>
+            </a>
           </nav>
 
-          {/* Secure Purchase Badge & Search Certificate Trigger */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowLookupModal(true)}
-              className="text-xs text-sky-200 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 px-2.5 py-1 rounded-md border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Buscar mi certificado de licencia ya emitido"
-            >
-              <Search className="w-3.5 h-3.5 text-sky-400" />
-              <span className="hidden sm:inline">Consultar mi Licencia</span>
-            </button>
-
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-6 h-6 text-white flex-shrink-0" />
-              <div className="text-left text-xs leading-none hidden sm:block">
-                <span className="font-bold text-white block text-[11px]">Compra Segura</span>
-                <span className="text-[9px] text-slate-300">Tus datos están protegidos</span>
-              </div>
+          {/* Secure Purchase Badge */}
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-6 h-6 text-white flex-shrink-0" />
+            <div className="text-left text-xs leading-none hidden sm:block">
+              <span className="font-bold text-white block text-[11px]">Compra Segura</span>
+              <span className="text-[9px] text-slate-300">Tus datos están protegidos</span>
             </div>
           </div>
         </div>
@@ -660,23 +589,29 @@ export default function BuySoftwarePage() {
           {/* LEFT COLUMN: Product Banner, Plans Stack & Download Card  */}
           {/* ========================================================= */}
           <div className="lg:col-span-5 space-y-4">
-            {/* 1. Product Header Card */}
+            {/* 1. Product Header Card with Official SICOVEN Emblem */}
             <div className="bg-white border border-[#d8e2eb] rounded-xl p-4 shadow-2xs">
               <div className="flex items-start gap-3.5">
-                {/* Computer / Desktop Icon Box matching Image 1 */}
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-b from-[#113256] to-[#0c223c] text-white flex items-center justify-center flex-shrink-0 shadow-inner">
-                  <div className="w-9 h-7 rounded-sm border-2 border-sky-300 bg-sky-950/80 flex items-center justify-center relative">
-                    <Monitor className="w-4 h-4 text-sky-300" />
-                    <span className="absolute -bottom-1.5 w-3 h-1 bg-sky-300 rounded-xs" />
-                  </div>
+                {/* Official SICOVEN Icon Emblem ("S" with two yellow stripes underneath) */}
+                <div className="w-14 h-14 rounded-xl bg-[#0c243e] p-1 flex items-center justify-center flex-shrink-0 shadow-sm border border-slate-200/50">
+                  <img
+                    src="/sicoven-emblem.svg"
+                    alt="Icono Oficial SICOVEN"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
 
-                <div className="space-y-1">
-                  <h2 className="text-lg font-black text-[#0c243e] tracking-tight">
-                    {selectedProduct?.name || "Sistema POS Profesional"}
-                  </h2>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-black text-[#0c243e] tracking-tight">
+                      SICOVEN
+                    </h2>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-sky-700 bg-sky-50 border border-sky-200/80 px-2 py-0.5 rounded-md">
+                      Sistema Contable
+                    </span>
+                  </div>
                   <p className="text-xs text-[#4e657f] leading-snug">
-                    {selectedProduct?.description || "Controla tus ventas, inventario y caja desde un solo lugar. Ideal para tiendas, bodegas y comercios."}
+                    Sistema integral contable y de gestión. Controla ventas, inventario, facturación y caja desde un solo lugar.
                   </p>
                 </div>
               </div>
@@ -772,39 +707,6 @@ export default function BuySoftwarePage() {
               <p className="text-[11.5px] leading-snug">
                 El plan seleccionado incluye el acceso al software y actualizaciones durante el período contratado.
               </p>
-            </div>
-
-            {/* 4. Descarga el instalador Card matching Image 1 */}
-            <div className="bg-white border border-[#d8e2eb] rounded-xl p-4 shadow-2xs space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0066cc] flex items-center justify-center flex-shrink-0">
-                  <Download className="w-4 h-4" />
-                </div>
-                <div className="space-y-0.5">
-                  <h4 className="font-black text-sm text-[#0c243e]">
-                    Descarga el instalador
-                  </h4>
-                  <p className="text-[11px] text-[#5b728b] leading-tight">
-                    Una vez aprobado tu pago, recibirás la licencia y podrás descargar el instalador desde tu panel de cliente.
-                  </p>
-                </div>
-              </div>
-
-              <a
-                href={`https://wa.me/${whatsappAdminPhone.replace(/\D/g, "").replace(/^0/, "58")}?text=${encodeURIComponent("Hola, deseo solicitar el enlace de descarga del instalador demo de SICOVEN.")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-2.5 px-3 bg-[#0c243e] hover:bg-[#153a60] text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
-              >
-                {/* Windows 4-square flag icon */}
-                <div className="grid grid-cols-2 gap-0.5 w-3 h-3">
-                  <span className="bg-white w-1.5 h-1.5" />
-                  <span className="bg-white w-1.5 h-1.5" />
-                  <span className="bg-white w-1.5 h-1.5" />
-                  <span className="bg-white w-1.5 h-1.5" />
-                </div>
-                <span>Descargar instalador (demo)</span>
-              </a>
             </div>
           </div>
 
@@ -1367,82 +1269,6 @@ export default function BuySoftwarePage() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================= */}
-      {/* MODAL: LOOKUP PAST REPORT OR LICENSE                      */}
-      {/* ========================================================= */}
-      {showLookupModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-4">
-            <button
-              onClick={() => setShowLookupModal(false)}
-              className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#0066cc] flex items-center justify-center">
-                <Search className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-black text-lg text-[#0c243e]">
-                  Consultar Certificado
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Ingresa tus datos para recuperar tu licencia aprobada.
-                </p>
-              </div>
-            </div>
-
-            <form onSubmit={handleLookup} className="space-y-3 pt-2">
-              <div>
-                <label className="block text-xs font-semibold text-[#3b536e] mb-1">
-                  Cédula de Identidad o RIF *
-                </label>
-                <input
-                  required
-                  type="text"
-                  value={lookupDoc}
-                  onChange={(e) => setLookupDoc(e.target.value)}
-                  placeholder="Ej. V-12345678 o J123456789"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#0c243e] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#3b536e] mb-1">
-                  Referencia bancaria de pago *
-                </label>
-                <input
-                  required
-                  type="text"
-                  minLength={6}
-                  value={lookupRef}
-                  onChange={(e) => setLookupRef(e.target.value.replace(/\D/g, "").slice(0, 30))}
-                  placeholder="Ej. 482731 (mínimo 6 dígitos)"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#0c243e] font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-
-              {lookupError && (
-                <div className="p-3 rounded-lg bg-red-50 text-red-700 text-xs font-medium border border-red-200">
-                  {lookupError}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={lookupLoading}
-                className="w-full py-3 bg-[#0066cc] hover:bg-[#0052a3] text-white font-bold rounded-xl text-sm transition-all shadow flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {lookupLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                <span>{lookupLoading ? "Consultando…" : "Buscar Licencia"}</span>
-              </button>
-            </form>
           </div>
         </div>
       )}

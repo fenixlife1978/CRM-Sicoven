@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 110" fill="none">
+  <!-- Official SICOVEN Horizontal Logo -->
+  <defs>
+    <linearGradient id="bgBox" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0c243e" />
+      <stop offset="100%" stop-color="#08182b" />
+    </linearGradient>
+    <linearGradient id="sGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="stripeTopLogo" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#fcd34d" />
+    </linearGradient>
+    <linearGradient id="stripeBottomLogo" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+  </defs>
+
+  <!-- Left Icon Emblem Box -->
+  <g transform="translate(6, 5)">
+    <rect width="100" height="100" rx="22" fill="url(#bgBox)" />
+    <!-- White base S -->
+    <path
+      d="M62 17 C71 17 76 21 75 26 C74 30 70 32 63 32 C54 32 44 32 38 35 C32 38 33 43 39 47 L58 53 C71 57 73 68 65 73 C57 77 42 77 34 73 C27 70 25 66 26 61 C27 57 32 55 37 57 C44 62 55 63 60 59 C63 56 61 52 56 50 L37 44 C25 40 23 30 31 23 C39 17 52 17 62 17 Z"
+      fill="#ffffff"
+    />
+    <!-- Cyan gradient fill S -->
+    <path
+      d="M59 20 C66 20 70 23 69 26 C68 29 65 30 60 30 C53 30 45 30 41 33 C37 35 37 38 41 41 L60 47 C70 51 71 59 65 63 C59 67 46 67 39 64 C34 61 32 58 33 55 C34 52 37 51 40 52 C46 56 55 56 59 54 C61 52 60 49 55 47 L35 41 C27 38 26 29 33 24 C39 20 50 20 59 20 Z"
+      fill="url(#sGrad)"
+    />
+    <!-- 2 Yellow Stripes -->
+    <rect x="28" y="79" width="44" height="5" rx="2.5" fill="url(#stripeTopLogo)" />
+    <rect x="37" y="87" width="26" height="4.5" rx="2.25" fill="url(#stripeBottomLogo)" />
+  </g>
+
+  <!-- Typography Right -->
+  <text x="124" y="60" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="46" letter-spacing="-0.5" fill="#0c243e">SICOVEN</text>
+  <text x="126" y="84" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="15" letter-spacing="0.4" fill="#526b84">Sistema Contable y de Gestión</text>
+</svg>

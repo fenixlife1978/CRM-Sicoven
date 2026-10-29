@@ -313,7 +313,7 @@ export default function BuySoftwarePage() {
     try {
       const reportIdentity = identityDocument || "";
       const reportReference = referenceLastSix || "";
-      if (!reportIdentity || !/^\\d{6}$/.test(reportReference)) return;
+      if (!reportIdentity || !/^\d{6}$/.test(reportReference)) return;
       const params = new URLSearchParams({ identityDocument: reportIdentity, referenceLastSix: reportReference });
       const res = await fetch(`/api/payment-reports/${reportId}/certificate?${params.toString()}`, { cache: "no-store" });
       const data = await res.json();

@@ -86,6 +86,7 @@ type ActiveReport = {
   planName: string;
   amount: number;
   referenceLastSix: string;
+  referenceFull?: string;
   paymentDate: string;
   reviewNote?: string | null;
   reviewedAt?: string | null;

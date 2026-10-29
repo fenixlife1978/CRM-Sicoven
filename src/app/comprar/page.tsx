@@ -499,14 +499,6 @@ export default function BuySoftwarePage() {
 
           {/* Secure Purchase Badge & Search Certificate Trigger */}
           <div className="flex items-center gap-3 sm:gap-4">
-            <button
-              onClick={() => setShowLookupModal(true)}
-              className="text-xs text-sky-200 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 px-3 py-1.5 rounded-full border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Search className="w-3.5 h-3.5 text-sky-400" />
-              <span>Consultar mi Licencia</span>
-            </button>
-
             <div className="flex items-center gap-2 bg-[#173352]/70 px-3 py-1.5 rounded-full border border-[#23476f]/50">
               <ShieldCheck className="w-5 h-5 text-sky-400 flex-shrink-0" />
               <div className="text-left text-xs leading-none">
@@ -1395,8 +1387,8 @@ export default function BuySoftwarePage() {
       {/* MODAL: OFFICIAL CERTIFICATE OF LICENSE (DOWNLOAD / PRINT) */}
       {/* ========================================================= */}
       {showCertificateModal && activeReport?.certificate && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
+        <div className="certificate-modal fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-start justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="certificate-sheet bg-white rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden my-0 sm:my-2 animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Actions Bar (hidden when printing) */}
             <div className="bg-[#0f243c] text-white p-4 flex items-center justify-between border-b border-slate-700 print:hidden">
               <div className="flex items-center gap-2 text-sm font-bold">
@@ -1409,7 +1401,7 @@ export default function BuySoftwarePage() {
                   className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>Imprimir / Guardar PDF</span>
+                  <span>Descargar PDF / Imprimir</span>
                 </button>
                 <button
                   onClick={() => setShowCertificateModal(false)}
@@ -1421,7 +1413,7 @@ export default function BuySoftwarePage() {
             </div>
 
             {/* PRINTABLE CERTIFICATE DOCUMENT WITH ORIGINAL EFASFREELANCER LOGO */}
-            <div id="printable-certificate" className="p-8 sm:p-12 bg-[#fdfefe] relative text-[#1c2e45]">
+            <div id="printable-certificate" className="p-5 sm:p-10 bg-[#fdfefe] relative text-[#1c2e45]">
               {/* Outer Security Border */}
               <div className="border-4 border-[#0c2540] p-6 sm:p-8 rounded-xl relative overflow-hidden bg-white shadow-inner">
                 {/* Original EFASfreelancer Watermark in background */}
@@ -1594,6 +1586,19 @@ export default function BuySoftwarePage() {
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        @media print {
+          @page { size: A4; margin: 10mm; }
+          html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; height: auto !important; overflow: visible !important; }
+          body * { visibility: hidden !important; }
+          .certificate-modal { position: static !important; display: block !important; overflow: visible !important; background: #fff !important; padding: 0 !important; backdrop-filter: none !important; }
+          .certificate-sheet { width: 100% !important; max-width: none !important; margin: 0 !important; border-radius: 0 !important; box-shadow: none !important; overflow: visible !important; }
+          #printable-certificate, #printable-certificate * { visibility: visible !important; }
+          #printable-certificate { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; padding: 0 !important; margin: 0 !important; background: #fff !important; }
+          .print\\:hidden { display: none !important; }
+        }
+      `}</style>
 
       {/* ========================================================= */}
       {/* MODAL: LOOKUP PAST REPORT OR LICENSE                      */}

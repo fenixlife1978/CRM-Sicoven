@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       parsedPaymentDate.toISOString().slice(0, 10) === paymentDate &&
       paymentDate <= new Intl.DateTimeFormat("en-CA", { timeZone: "America/Caracas", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
     if (!productId || !planId || !customerType || !identityDocument || !phone || !Number.isFinite(amount) || amount <= 0 ||
-      !/^\d{6}$/.test(referenceLastSix) || !validPaymentDate ||
+      !/^\\d{6,30}$/.test(referenceFull) || !validPaymentDate ||
       !sourceBank || !destinationBankId || (customerType === "person" && (!firstName || !lastName)) ||
       (customerType === "company" && !legalName) ||
       (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {

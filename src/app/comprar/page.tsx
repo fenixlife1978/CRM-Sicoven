@@ -1218,36 +1218,24 @@ export default function BuySoftwarePage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                        Referencia bancaria completa *
-                      </label>
-                      <input
-                        required
-                        type="text"
-                        value={referenceFull}
-                        onChange={(e) => setReferenceFull(e.target.value.replace(/\D/g, "").slice(0, 30))}
-                        placeholder="Ej. 123456"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                        
-                      </label>
-                      <input
-                        required
-                        type="text"
-                        maxLength={30}
-                        pattern="[0-9]{6,30}"
-                        value={referenceLastSix}
-                        onChange={(e) => setReferenceLastSix(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        placeholder="Todos los dígitos de la referencia"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono tracking-widest"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#3a526d] mb-1">
+                      Referencia bancaria completa *
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      minLength={6}
+                      maxLength={30}
+                      pattern="[0-9]{6,30}"
+                      value={referenceFull}
+                      onChange={(e) => setReferenceFull(e.target.value.replace(/\D/g, "").slice(0, 30))}
+                      placeholder="Todos los dígitos de la referencia"
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono tracking-wider"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">Escribe la referencia completa tal como aparece en el comprobante; no ingreses solo los últimos seis dígitos.</p>
                   </div>
                 </div>
 

@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       args: [referenceFull,referenceLastSix]
     });
     if (duplicate.rows.length) {
-      return NextResponse.json({ error: "Ya existe un reporte con esa referencia, fecha, monto y cuenta receptora. Revisa el estado antes de enviarlo otra vez." }, { status: 409, headers: noStore });
+      return NextResponse.json({ error: "Esta referencia bancaria ya fue reportada en un pago pendiente o aprobado. No puedes volver a enviarla." }, { status: 409, headers: noStore });
     }
     const id = randomUUID();
     await db.execute({

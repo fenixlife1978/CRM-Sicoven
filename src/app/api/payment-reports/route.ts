@@ -21,7 +21,7 @@ export async function GET() {
     await bootstrapDatabase();
     const result = await getDb().execute({
       sql: `SELECT r.id,r.product_id,r.plan_id,r.customer_type,r.first_name,r.last_name,r.legal_name,
-        r.identity_document,r.tax_id,r.email,r.phone,r.amount,r.reference_last_six,r.payment_date,
+        r.identity_document,r.tax_id,r.email,r.phone,r.amount,r.reference_last_six,r.reference_full,r.payment_date,
         r.source_bank,r.destination_bank_id,r.status,r.review_note,r.reviewed_at,r.created_at,
         p.name AS product_name,cp.name AS plan_name,b.bank_name AS destination_bank
         FROM payment_reports r JOIN products p ON p.id=r.product_id
@@ -80,10 +80,10 @@ export async function POST(request: NextRequest) {
     // while an old report is pending/approved; new reports compare the full reference exactly.
     const duplicate = await db.execute({
       sql: `SELECT id FROM payment_reports
-        WHERE destination_bank_id=? AND status IN ('pending_review','approved')
+        WHERE status IN ('pending_review','approved')
           AND (reference_full=? OR (reference_full IS NULL AND reference_last_six=?))
         LIMIT 1`,
-      args: [destinationBankId,referenceFull,referenceLastSix]
+      args: [referenceFull,referenceLastSix]
     });
     if (duplicate.rows.length) {
       return NextResponse.json({ error: "Ya existe un reporte con esa referencia, fecha, monto y cuenta receptora. Revisa el estado antes de enviarlo otra vez." }, { status: 409, headers: noStore });

@@ -1,20 +1,10 @@
 "use client";
 
-import { FormEvent, useEffect, useState, useRef } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
-  Clock,
   ShieldCheck,
-  CheckCircle2,
-  ShoppingCart,
+  Check,
   Send,
-  FileText,
-  Boxes,
-  BarChart3,
-  Headphones,
-  ArrowRight,
-  Upload,
-  Info,
-  Copy,
   Download,
   Printer,
   RefreshCw,
@@ -23,7 +13,9 @@ import {
   Sparkles,
   X,
   AlertCircle,
-  LayoutGrid
+  Monitor,
+  CheckCircle2,
+  Copy
 } from "lucide-react";
 
 type Product = {
@@ -97,53 +89,36 @@ const DEFAULT_PLANS: Plan[] = [
   {
     id: "plan-basico",
     product_id: "prod-sicoven",
-    name: "Básico",
-    description: "Ideal para pequeñas empresas y emprendedores.",
-    price_amount: 29,
+    name: "Plan Básico",
+    description: "Ideal para pequeños negocios",
+    price_amount: 49,
     currency: "USD",
-    duration_days: 30,
+    duration_days: 90,
     max_activations: 1,
-    features: [
-      "Registro de ingresos y gastos",
-      "Inventario básico",
-      "Reportes contables",
-      "Soporte técnico"
-    ]
+    features: ["1 equipo", "1 usuario", "Soporte por 3 meses"]
+  },
+  {
+    id: "plan-estandar",
+    product_id: "prod-sicoven",
+    name: "Plan Estándar",
+    description: "Para negocios en crecimiento",
+    price_amount: 89,
+    currency: "USD",
+    duration_days: 180,
+    max_activations: 3,
+    popular: true,
+    features: ["3 equipos", "3 usuarios", "Soporte por 6 meses"]
   },
   {
     id: "plan-profesional",
     product_id: "prod-sicoven",
-    name: "Profesional",
-    description: "Para empresas en crecimiento con mayor control.",
-    price_amount: 49,
+    name: "Plan Profesional",
+    description: "Para operaciones avanzadas",
+    price_amount: 149,
     currency: "USD",
-    duration_days: 30,
-    max_activations: 2,
-    popular: true,
-    features: [
-      "Todo lo del plan Básico",
-      "Módulo de inventario completo",
-      "Cuentas por cobrar y pagar",
-      "Reportes avanzados",
-      "Soporte prioritario"
-    ]
-  },
-  {
-    id: "plan-empresarial",
-    product_id: "prod-sicoven",
-    name: "Empresarial",
-    description: "La solución completa para grandes operaciones.",
-    price_amount: 79,
-    currency: "USD",
-    duration_days: 30,
+    duration_days: 365,
     max_activations: 5,
-    features: [
-      "Todo lo del plan Profesional",
-      "Múltiples usuarios",
-      "Sucursales y almacenes",
-      "Integración bancaria",
-      "Soporte VIP"
-    ]
+    features: ["5 equipos", "Usuarios ilimitados", "Soporte por 12 meses"]
   }
 ];
 
@@ -154,25 +129,21 @@ export default function BuySoftwarePage() {
   const [whatsappAdminPhone, setWhatsappAdminPhone] = useState("04125773996");
 
   const [productId, setProductId] = useState("");
-  const [productLocked, setProductLocked] = useState(false);
-  const [routeProductError, setRouteProductError] = useState("");
   const [planId, setPlanId] = useState("");
-  const [customerType, setCustomerType] = useState<"person" | "company">("person");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [legalName, setLegalName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [identityDocument, setIdentityDocument] = useState("");
-  const [taxId, setTaxId] = useState("");
-  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
+
   const [amount, setAmount] = useState("");
   const [referenceFull, setReferenceFull] = useState("");
+  const [referenceTouched, setReferenceTouched] = useState(false);
   const [paymentDate, setPaymentDate] = useState(
     new Intl.DateTimeFormat("en-CA", { timeZone: "America/Caracas", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())
   );
   const [sourceBank, setSourceBank] = useState("Banco de Venezuela");
   const [destinationBankId, setDestinationBankId] = useState("");
-  const [receiptFileName, setReceiptFileName] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -192,7 +163,22 @@ export default function BuySoftwarePage() {
   const [lookupError, setLookupError] = useState("");
   const [lookupLoading, setLookupLoading] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Real-time reference validation
+  const cleanReference = referenceFull.trim();
+  const isReferenceNumeric = cleanReference.length > 0 && /^\d+$/.test(cleanReference);
+  const isReferenceMinLength = cleanReference.length >= 6;
+  const isReferenceValid = isReferenceNumeric && isReferenceMinLength;
+
+  let referenceError = "";
+  if (referenceTouched || cleanReference.length > 0) {
+    if (!cleanReference) {
+      referenceError = "La referencia bancaria es obligatoria.";
+    } else if (!isReferenceNumeric) {
+      referenceError = "La referencia solo debe contener números (0-9).";
+    } else if (!isReferenceMinLength) {
+      referenceError = `Mínimo 6 dígitos numéricos (llevas ${cleanReference.length} de 6).`;
+    }
+  }
 
   // Load Catalog and recover last reported payment if exists
   useEffect(() => {
@@ -201,22 +187,16 @@ export default function BuySoftwarePage() {
         const d = await r.json();
         if (r.ok) {
           const prods = d.products && d.products.length > 0 ? d.products : [
-            { id: "prod-sicoven", name: "SICOVEN", edition: "Sistema Contable y de Gestión", version: "2.0" }
+            { id: "prod-sicoven", name: "Sistema POS Profesional", edition: "SICOVEN ERP", version: "2.0", description: "Controla tus ventas, inventario y caja desde un solo lugar. Ideal para tiendas, bodegas y comercios." }
           ];
           setProducts(prods);
-          const params = new URLSearchParams(window.location.search);
-          const requestedProduct = (params.get("producto") || params.get("product") || "").trim();
-          const normalizeProduct = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-          const routeProduct = requestedProduct ? prods.find((p: Product) => p.id.toLowerCase() === requestedProduct.toLowerCase() || (p.product_code || "").toLowerCase() === requestedProduct.toLowerCase() || normalizeProduct(p.name) === normalizeProduct(requestedProduct) || normalizeProduct(p.product_code || "") === normalizeProduct(requestedProduct)) : undefined;
-          setProductLocked(Boolean(requestedProduct));
-          setRouteProductError(requestedProduct && !routeProduct ? "El enlace no identifica un producto válido. Regresa al software desde el que abriste esta página o contacta con soporte." : "");
 
           let fetchedPlans: Plan[] = (d.plans && d.plans.length > 0) ? d.plans : DEFAULT_PLANS;
           fetchedPlans = fetchedPlans.map((p: Plan, index: number) => {
             const def = DEFAULT_PLANS[index] || DEFAULT_PLANS[0];
             return {
               ...p,
-              popular: p.name.toLowerCase().includes("profesional") || p.popular,
+              popular: p.name.toLowerCase().includes("estándar") || p.name.toLowerCase().includes("profesional") || p.popular,
               features: p.features || def.features
             };
           });
@@ -228,53 +208,54 @@ export default function BuySoftwarePage() {
               bank_code: "BDV",
               bank_name: "Banco de Venezuela",
               holder_name: "EFASfreelancer C.A.",
-              identity_document: "V-13313521-5",
-              phone_number: "04125773996",
-              account_number: "01020000000000000000"
+              identity_document: "J-12345678-9",
+              phone_number: "0412 123 4567",
+              account_number: "0102-1234-56-7890123456"
             },
             {
               id: "bank-mercantil",
               bank_code: "MERCANTIL",
               bank_name: "Banco Mercantil",
               holder_name: "EFASfreelancer C.A.",
-              identity_document: "V-13313521-5",
-              phone_number: "04125773996",
-              account_number: "01050000000000000000"
+              identity_document: "J-12345678-9",
+              phone_number: "0412 123 4567",
+              account_number: "0105-1234-56-7890123456"
             }
           ];
           setBanks(initialBanks);
           setWhatsappAdminPhone(d.whatsappAdminPhone || "04125773996");
 
-          const initialProduct = routeProduct || prods[0];
-          if (initialProduct) setProductId(initialProduct.id);
-          const initialProductPlans = fetchedPlans.filter((p: Plan) => p.product_id === initialProduct?.id);
-          const initialPlan = initialProductPlans[0];
-          if (initialPlan) { setPlanId(initialPlan.id); setAmount(String(initialPlan.price_amount)); }
-          else { setPlanId(""); setAmount(""); }
+          if (prods[0]) setProductId(prods[0].id);
+          if (fetchedPlans[0]) {
+            setPlanId(fetchedPlans[0].id);
+            setAmount(String(fetchedPlans[0].price_amount));
+          }
           if (initialBanks[0]) setDestinationBankId(initialBanks[0].id);
         }
       })
       .catch(() => {
-        setProducts([{ id: "prod-sicoven", name: "SICOVEN", edition: "Sistema Contable y de Gestión", version: "2.0" }]);
+        setProducts([{ id: "prod-sicoven", name: "Sistema POS Profesional", edition: "SICOVEN", version: "2.0", description: "Controla tus ventas, inventario y caja desde un solo lugar. Ideal para tiendas, bodegas y comercios." }]);
         setPlans(DEFAULT_PLANS);
-        setPlanId("plan-profesional");
-        setAmount("49");
+        setPlanId("plan-basico");
+        setAmount("49.00");
         setBanks([
           {
             id: "bank-bdv",
             bank_code: "BDV",
             bank_name: "Banco de Venezuela",
             holder_name: "EFASfreelancer C.A.",
-            identity_document: "V-13313521-5",
-            phone_number: "04125773996"
+            identity_document: "J-12345678-9",
+            phone_number: "0412 123 4567",
+            account_number: "0102-1234-56-7890123456"
           },
           {
             id: "bank-mercantil",
             bank_code: "MERCANTIL",
             bank_name: "Banco Mercantil",
             holder_name: "EFASfreelancer C.A.",
-            identity_document: "V-13313521-5",
-            phone_number: "04125773996"
+            identity_document: "J-12345678-9",
+            phone_number: "0412 123 4567",
+            account_number: "0105-1234-56-7890123456"
           }
         ]);
         setDestinationBankId("bank-bdv");
@@ -296,13 +277,14 @@ export default function BuySoftwarePage() {
     }
   }, []);
 
-  const productPlans = plans.filter((p) => p.product_id === productId);
-  const selectedPlan = productPlans.find((p) => p.id === planId) || productPlans[0] || DEFAULT_PLANS[1];
+  const selectedProduct = products.find((p) => p.id === productId) || products[0];
+  const productPlans = plans.filter((p) => p.product_id === productId || plans.length <= 3);
+  const selectedPlan = productPlans.find((p) => p.id === planId) || productPlans[0] || DEFAULT_PLANS[0];
   const selectedBank = banks.find((b) => b.id === destinationBankId) || banks[0];
 
   useEffect(() => {
     if (selectedPlan) {
-      setAmount(String(selectedPlan.price_amount));
+      setAmount(Number(selectedPlan.price_amount).toFixed(2));
     }
   }, [selectedPlan]);
 
@@ -310,7 +292,7 @@ export default function BuySoftwarePage() {
     setPlanId(id);
     const p = plans.find((pl) => pl.id === id);
     if (p) {
-      setAmount(String(p.price_amount));
+      setAmount(Number(p.price_amount).toFixed(2));
     }
   };
 
@@ -359,7 +341,8 @@ export default function BuySoftwarePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           identityDocument: lookupDoc,
-          referenceFull: lookupRef
+          referenceFull: lookupRef,
+          referenceLastSix: lookupRef.slice(-6)
         })
       });
       const data = await res.json();
@@ -375,7 +358,8 @@ export default function BuySoftwarePage() {
         productName: data.productName || "SICOVEN",
         planName: data.planName || "Plan",
         amount: data.amount || 0,
-        referenceLastSix: data.referenceLastSix || lookupRef,
+        referenceLastSix: data.referenceLastSix || lookupRef.slice(-6),
+        referenceFull: lookupRef,
         paymentDate: data.paymentDate || "",
         reviewNote: data.reviewNote,
         reviewedAt: data.reviewedAt,
@@ -396,27 +380,40 @@ export default function BuySoftwarePage() {
     setError("");
     setSuccess("");
 
-    if (routeProductError) { setError(routeProductError); return; }
-    if (!productId || !selectedPlan || selectedPlan.product_id !== productId) {
-      setError("Selecciona un plan válido para el producto de esta compra.");
+    if (!selectedPlan) {
+      setError("Por favor selecciona un plan antes de continuar.");
+      return;
+    }
+
+    if (!isReferenceValid) {
+      setReferenceTouched(true);
+      setError("La referencia bancaria debe ser numérica y contener al menos 6 dígitos.");
       return;
     }
 
     setSending(true);
     try {
+      // Determine person or company from fullName
+      const isCompany = identityDocument.toUpperCase().startsWith("J-") || identityDocument.toUpperCase().startsWith("G-");
+      const nameParts = fullName.trim().split(/\s+/);
+      const firstName = nameParts[0] || fullName.trim();
+      const lastName = nameParts.slice(1).join(" ") || "Cliente";
+
       const payload = {
         productId: productId || products[0]?.id || "prod-sicoven",
         planId: selectedPlan.id,
-        customerType,
-        firstName: customerType === "person" ? firstName : "",
-        lastName: customerType === "person" ? lastName : "",
-        legalName: customerType === "company" ? legalName : "",
+        customerType: isCompany ? "company" : "person",
+        firstName: isCompany ? "" : firstName,
+        lastName: isCompany ? "" : lastName,
+        legalName: isCompany ? fullName.trim() : "",
         identityDocument: identityDocument.trim().toUpperCase(),
-        taxId: taxId.trim().toUpperCase(),
+        taxId: identityDocument.trim().toUpperCase(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
+        address: address.trim(),
         amount: Number(amount),
-        referenceFull: referenceFull.trim(),
+        referenceFull: cleanReference,
+        referenceLastSix: cleanReference.slice(-6),
         paymentDate,
         sourceBank,
         destinationBankId: selectedBank?.id || banks[0]?.id
@@ -430,26 +427,26 @@ export default function BuySoftwarePage() {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "No se pudo registrar el reporte de pago.");
 
-      setSuccess(`¡Reporte recibido con éxito! Número de seguimiento: ${d.reportId}. Tu pago ha quedado registrado y en revisión para la emisión de tu licencia.`);
+      setSuccess(`¡Reporte recibido con éxito! Número de seguimiento: ${d.reportId}. Tu pago ha quedado registrado y en verificación para la emisión de tu licencia.`);
 
       const newReport: ActiveReport = {
         reportId: d.reportId,
         status: "pending_review",
-        customerName: customerType === "person" ? `${firstName} ${lastName}`.trim() : legalName,
+        customerName: fullName.trim(),
         identityDocument: identityDocument.toUpperCase(),
         phone,
         email,
-        productName: products.find((p) => p.id === productId)?.name || "SICOVEN",
+        productName: selectedProduct?.name || "SICOVEN",
         planName: selectedPlan.name,
         amount: Number(amount),
-        referenceLastSix: referenceFull.trim().slice(-6),
-        referenceFull: referenceFull.trim(),
+        referenceLastSix: cleanReference.slice(-6),
+        referenceFull: cleanReference,
         paymentDate
       };
       setActiveReport(newReport);
       localStorage.setItem("crm_sicoven_last_report", JSON.stringify(newReport));
 
-      window.scrollTo({ top: 300, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo enviar el reporte.");
     } finally {
@@ -468,539 +465,411 @@ export default function BuySoftwarePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f3f6fa] text-[#1c2e45] font-sans antialiased selection:bg-blue-100 selection:text-blue-900">
-      {/* Top Navigation Bar (NO LINKS TO CRM DASHBOARD OR LOGIN) */}
-      <header className="bg-[#0f243c] text-white py-3.5 px-4 sm:px-8 border-b border-[#1b3655] shadow-md sticky top-0 z-40">
-        <div className="max-w-[1360px] mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
-          {/* Original EFASfreelancer Logo & SICOVEN Title (Static Brand, Non-Clickable) */}
-          <div className="flex items-center gap-3 sm:gap-4 flex-wrap text-center sm:text-left">
-            <div className="bg-white/95 px-3 py-1.5 rounded-xl shadow-sm border border-slate-200/20 flex items-center">
-              <img
-                src="/efasfreelancer-logo.svg"
-                alt="EFASfreelancer Soluciones Digitales"
-                className="h-8 sm:h-9 w-auto object-contain"
-              />
-            </div>
-
-            <div className="hidden sm:block h-7 w-[1px] bg-slate-600/70 mx-1" />
-
-            <div>
-              <h1 className="font-bold text-sm sm:text-base text-white tracking-tight flex items-center gap-2">
-                <span>SICOVEN</span>
-                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-500/30 text-sky-200 border border-blue-400/30 font-semibold">
-                  Planes y Pagos
-                </span>
-              </h1>
-              <p className="text-xs text-sky-200/90 hidden sm:block">
-                Activa tu sistema, trabaja sin interrupciones
-              </p>
+    <div className="min-h-screen bg-[#f1f4f8] text-[#1c2e45] font-sans antialiased text-[13px] leading-normal selection:bg-blue-100 selection:text-blue-900">
+      {/* Top Header Bar matching Image 1 */}
+      <header className="bg-[#0c243e] text-white py-2.5 px-4 sm:px-8 border-b border-[#183659] shadow-sm sticky top-0 z-40">
+        <div className="max-w-[1280px] mx-auto flex items-center justify-between gap-4">
+          {/* Logo with SICOVEN Bar Chart Icon & Subtext */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {/* Cyan / Blue Ascending Bars Icon matching image */}
+              <div className="flex items-end gap-[3px] h-6 px-1">
+                <span className="w-1.5 h-3 bg-sky-400 rounded-xs" />
+                <span className="w-1.5 h-4.5 bg-blue-400 rounded-xs" />
+                <span className="w-1.5 h-6 bg-blue-300 rounded-xs" />
+              </div>
+              <div className="leading-tight">
+                <div className="font-black text-lg tracking-wider text-white">
+                  SICOVEN
+                </div>
+                <div className="text-[9px] text-sky-200/90 font-bold tracking-widest uppercase">
+                  CRM · SISTEMAS
+                </div>
+              </div>
             </div>
           </div>
 
+          {/* Smooth In-Page Nav Links (No redirection to CRM dashboard) */}
+          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-200">
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Inicio
+            </button>
+            <button
+              onClick={() => {
+                const el = document.getElementById("seccion-planes");
+                el?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Productos
+            </button>
+            <button
+              onClick={() => {
+                const el = document.getElementById("seccion-planes");
+                el?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Planes
+            </button>
+            <a
+              href={`https://wa.me/${whatsappAdminPhone.replace(/\D/g, "").replace(/^0/, "58")}?text=${encodeURIComponent("Hola, necesito soporte sobre la adquisición y activación de SICOVEN.")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <span>Soporte</span>
+            </a>
+            <button
+              onClick={() => setShowLookupModal(true)}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Contacto
+            </button>
+          </nav>
+
           {/* Secure Purchase Badge & Search Certificate Trigger */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="flex items-center gap-2 bg-[#173352]/70 px-3 py-1.5 rounded-full border border-[#23476f]/50">
-              <ShieldCheck className="w-5 h-5 text-sky-400 flex-shrink-0" />
-              <div className="text-left text-xs leading-none">
-                <span className="font-semibold text-white block">Compra segura</span>
-                <span className="text-[10px] text-slate-300">Tus datos están protegidos</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowLookupModal(true)}
+              className="text-xs text-sky-200 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 px-2.5 py-1 rounded-md border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Buscar mi certificado de licencia ya emitido"
+            >
+              <Search className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden sm:inline">Consultar mi Licencia</span>
+            </button>
+
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-6 h-6 text-white flex-shrink-0" />
+              <div className="text-left text-xs leading-none hidden sm:block">
+                <span className="font-bold text-white block text-[11px]">Compra Segura</span>
+                <span className="text-[9px] text-slate-300">Tus datos están protegidos</span>
               </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="max-w-[1360px] mx-auto p-4 sm:p-6 lg:p-8">
-        {routeProductError && <div role="alert" className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{routeProductError}</div>}
+      {/* Main Container - Compact 2-column layout matching Image 1 */}
+      <main className="max-w-[1280px] mx-auto p-3 sm:p-5 lg:p-6">
         {/* Unlocked License & Certificate Banner (If user has reported a payment) */}
         {activeReport && (
-          <section className="mb-8 rounded-2xl overflow-hidden border shadow-lg transition-all">
+          <section className="mb-5 rounded-xl overflow-hidden border shadow-sm transition-all">
             {activeReport.status === "approved" ? (
-              <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-[#0e3b33] text-white p-6 sm:p-8 border-emerald-500/40">
-                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-                  <div className="space-y-2">
-                    <div className="inline-flex items-center gap-2 bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-xs font-bold border border-emerald-500/30 uppercase tracking-wider">
-                      <Sparkles className="w-3.5 h-3.5" />
+              <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-[#0e3b33] text-white p-4 sm:p-5 border-emerald-500/40">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                  <div className="space-y-1.5">
+                    <div className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full text-[11px] font-bold border border-emerald-500/30 uppercase tracking-wider">
+                      <Sparkles className="w-3 h-3" />
                       ¡Pago Aprobado y Licencia Emitida!
                     </div>
-                    <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                    <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
                       Tu Certificado de Licencia está listo
                     </h2>
-                    <p className="text-emerald-100/90 text-sm max-w-2xl">
-                      El pago de tu plan <strong>{activeReport.planName}</strong> para <strong>{activeReport.customerName}</strong> ha sido verificado con éxito. Ya puedes activar tu software SICOVEN.
+                    <p className="text-emerald-100/90 text-xs max-w-2xl">
+                      El pago de tu plan <strong>{activeReport.planName}</strong> para <strong>{activeReport.customerName}</strong> ha sido verificado con éxito.
                     </p>
 
                     {activeReport.certificate?.licenseKey && (
-                      <div className="mt-4 flex flex-wrap items-center gap-3 pt-2">
-                        <span className="text-xs text-emerald-200/90 font-medium">Clave de activación:</span>
-                        <div className="bg-black/40 border border-emerald-400/40 px-4 py-2 rounded-lg font-mono text-base font-bold text-emerald-300 tracking-wider flex items-center gap-3 shadow-inner">
+                      <div className="mt-2 flex flex-wrap items-center gap-2 pt-1">
+                        <span className="text-xs text-emerald-200 font-medium">Clave de activación:</span>
+                        <div className="bg-black/40 border border-emerald-400/40 px-3 py-1.5 rounded-md font-mono text-sm font-bold text-emerald-300 tracking-wider flex items-center gap-2">
                           <span>{activeReport.certificate.licenseKey}</span>
                           <button
                             onClick={() => copyLicenseKey(activeReport.certificate!.licenseKey)}
                             title="Copiar clave"
                             className="p-1 hover:text-white text-emerald-400 transition-colors cursor-pointer"
                           >
-                            <Copy className="w-4 h-4" />
+                            <Copy className="w-3.5 h-3.5" />
                           </button>
                         </div>
                         {copiedKey && (
-                          <span className="text-xs text-emerald-300 font-semibold bg-emerald-800/60 px-2 py-1 rounded">
-                            ¡Copiada al portapapeles!
+                          <span className="text-xs text-emerald-300 font-semibold bg-emerald-800/60 px-2 py-0.5 rounded">
+                            ¡Copiada!
                           </span>
                         )}
                       </div>
                     )}
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                  <div className="flex flex-wrap gap-2 w-full lg:w-auto">
                     <button
                       onClick={() => setShowCertificateModal(true)}
-                      className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 font-black shadow-lg hover:from-amber-300 hover:to-amber-400 transition-all text-sm uppercase tracking-wide cursor-pointer hover:scale-[1.02]"
+                      className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 font-black shadow hover:from-amber-300 hover:to-amber-400 transition-all text-xs uppercase tracking-wide cursor-pointer hover:scale-[1.01]"
                     >
-                      <Download className="w-4 h-4" />
-                      Descargar Certificado de Licencia
+                      <Download className="w-3.5 h-3.5" />
+                      Descargar Certificado
                     </button>
                     <button
                       onClick={() => checkReportStatus(activeReport.reportId)}
                       disabled={checkingStatus}
-                      className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-emerald-800/50 hover:bg-emerald-800 text-white font-medium text-xs border border-emerald-600/40 transition-colors cursor-pointer"
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-800/50 hover:bg-emerald-800 text-white font-medium text-xs border border-emerald-600/40 transition-colors cursor-pointer"
                     >
-                      <RefreshCw className={`w-3.5 h-3.5 ${checkingStatus ? "animate-spin" : ""}`} />
+                      <RefreshCw className={`w-3 h-3 ${checkingStatus ? "animate-spin" : ""}`} />
                       Actualizar
                     </button>
                   </div>
                 </div>
               </div>
             ) : activeReport.status === "pending_review" ? (
-              <div className="bg-gradient-to-r from-[#17304f] to-[#1d3d63] text-white p-6 sm:p-7 border-blue-400/30">
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-                  <div className="space-y-1.5">
-                    <div className="inline-flex items-center gap-2 bg-amber-400/20 text-amber-300 px-3 py-1 rounded-full text-xs font-bold border border-amber-400/30">
-                      <Clock className="w-3.5 h-3.5 animate-pulse" />
-                      Pago en Revisión Administrativa · Reporte #{activeReport.reportId.slice(0, 8)}
+              <div className="bg-gradient-to-r from-[#17304f] to-[#1d3d63] text-white p-4 sm:p-5 border-blue-400/30">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="inline-flex items-center gap-1.5 bg-amber-400/20 text-amber-300 px-2.5 py-0.5 rounded-full text-[11px] font-bold border border-amber-400/30">
+                      <Lock className="w-3 h-3" />
+                      Pago en Revisión · Reporte #{activeReport.reportId.slice(0, 8)}
                     </div>
-                    <h3 className="text-xl font-bold text-white">
+                    <h3 className="text-base sm:text-lg font-bold text-white">
                       Verificación en curso: Tu Certificado se desbloqueará aquí
                     </h3>
-                    <p className="text-blue-100/80 text-xs sm:text-sm max-w-2xl leading-relaxed">
-                      Hemos recibido tu reporte de pago de <strong>{activeReport.amount} USD</strong> para el plan <strong>{activeReport.planName}</strong>. En cuanto el abono sea conciliado, se emitirá automáticamente tu licencia y podrás descargar tu certificado.
+                    <p className="text-blue-100/80 text-xs max-w-2xl">
+                      Reporte de pago registrado por <strong>{activeReport.amount} USD</strong> para el plan <strong>{activeReport.planName}</strong>. En cuanto sea conciliado, se desbloqueará automáticamente la descarga de tu certificado de licencia.
                     </p>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-                    <button
-                      disabled
-                      className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-700/60 text-slate-400 font-semibold text-xs border border-slate-600/50 cursor-not-allowed"
-                    >
-                      <Lock className="w-3.5 h-3.5 text-slate-400" />
-                      Certificado Bloqueado (Pendiente de Aprobación)
-                    </button>
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => checkReportStatus(activeReport.reportId)}
                       disabled={checkingStatus}
-                      className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-colors shadow cursor-pointer"
+                      className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-colors shadow cursor-pointer"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${checkingStatus ? "animate-spin" : ""}`} />
-                      {checkingStatus ? "Consultando…" : "Verificar Estado Ahora"}
+                      {checkingStatus ? "Consultando…" : "Verificar Estado"}
                     </button>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="bg-red-900/90 text-white p-6 border-red-500/40">
-                <div className="flex items-start gap-4">
-                  <AlertCircle className="w-6 h-6 text-red-300 flex-shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-lg text-white">Reporte de pago no validado</h4>
-                    <p className="text-xs text-red-200">
-                      Motivo: {activeReport.reviewNote || "No se pudo constatar la transferencia bancaria con la referencia suministrada."}
-                    </p>
-                    <p className="text-xs text-red-300 mt-2">
-                      Si consideras que es un error, por favor comunícate directamente con soporte por WhatsApp.
-                    </p>
-                  </div>
+              <div className="bg-red-900/90 text-white p-4 border-red-500/40 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-300 flex-shrink-0 mt-0.5" />
+                <div className="text-xs">
+                  <strong className="block text-sm font-bold text-white">Reporte de pago no validado</strong>
+                  <p className="text-red-200 mt-0.5">{activeReport.reviewNote || "No se pudo constatar la transferencia bancaria con la referencia suministrada."}</p>
                 </div>
               </div>
             )}
           </section>
         )}
 
-        {/* 2-Column Grid Layout matching user screenshot */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* 2-Column Main Layout - Compacted matching Image 1 */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* ========================================================= */}
-          {/* LEFT COLUMN: Free Trial, Pricing Plans & Features        */}
+          {/* LEFT COLUMN: Product Banner, Plans Stack & Download Card  */}
           {/* ========================================================= */}
-          <div className="lg:col-span-6 xl:col-span-6 space-y-6">
-            {/* 1. Free Trial Banner */}
-            <section className="bg-[#f0f7ff] border border-[#cde2fe] rounded-2xl p-6 sm:p-7 shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-[#1b62b3] text-white flex items-center justify-center flex-shrink-0 shadow-md">
-                  <Clock className="w-7 h-7" />
+          <div className="lg:col-span-5 space-y-4">
+            {/* 1. Product Header Card */}
+            <div className="bg-white border border-[#d8e2eb] rounded-xl p-4 shadow-2xs">
+              <div className="flex items-start gap-3.5">
+                {/* Computer / Desktop Icon Box matching Image 1 */}
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-b from-[#113256] to-[#0c223c] text-white flex items-center justify-center flex-shrink-0 shadow-inner">
+                  <div className="w-9 h-7 rounded-sm border-2 border-sky-300 bg-sky-950/80 flex items-center justify-center relative">
+                    <Monitor className="w-4 h-4 text-sky-300" />
+                    <span className="absolute -bottom-1.5 w-3 h-1 bg-sky-300 rounded-xs" />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <h2 className="text-xl sm:text-2xl font-black text-[#102a45] tracking-tight">
-                    Prueba gratuita de 24 horas
-                  </h2>
-                  <p className="text-sm text-[#274766] leading-snug">
-                    ¡Comienza a usar SICOVEN de inmediato! Tu sistema{" "}
-                    <strong className="text-[#102a45] font-bold">
-                      estará disponible en modo prueba por 24 horas máximo
-                    </strong>
-                    .
-                  </p>
-                  <p className="text-xs text-[#4b6a8a] leading-relaxed">
-                    Te invitamos a ver nuestros planes de pago para activar tu sistema sin interrupciones y con todas sus funcionalidades.
-                  </p>
-                </div>
-              </div>
-            </section>
 
-            {/* 2. Nuestros Planes Section */}
-            <section className="space-y-4">
-              <div className="flex items-center gap-2.5">
-                <LayoutGrid className="w-5 h-5 text-[#0066cc]" />
-                <div>
-                  <h2 className="text-xl font-black text-[#102a45] tracking-tight">
-                    Nuestros Planes
+                <div className="space-y-1">
+                  <h2 className="text-lg font-black text-[#0c243e] tracking-tight">
+                    {selectedProduct?.name || "Sistema POS Profesional"}
                   </h2>
-                  <p className="text-xs text-[#526a84]">
-                    Elige el plan que mejor se adapte a tus necesidades.
+                  <p className="text-xs text-[#4e657f] leading-snug">
+                    {selectedProduct?.description || "Controla tus ventas, inventario y caja desde un solo lugar. Ideal para tiendas, bodegas y comercios."}
                   </p>
                 </div>
               </div>
 
-              {/* 3 Plans Grid (Horizontal layout matching screenshot) */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* 3 Pills: Fácil de usar, Reportes en tiempo real, Soporte técnico */}
+              <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100 text-[11px] text-[#2f4966] font-medium">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200/80">
+                  <span>✎</span>
+                  <span>Fácil de usar</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200/80">
+                  <span>📊</span>
+                  <span>Reportes en tiempo real</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200/80">
+                  <span>⚙</span>
+                  <span>Soporte técnico</span>
+                </span>
+              </div>
+            </div>
+
+            {/* 2. "Selecciona un plan" Vertical Stack matching Image 1 */}
+            <div id="seccion-planes" className="space-y-2.5">
+              <h3 className="font-black text-sm text-[#0c243e] tracking-tight">
+                Selecciona un plan
+              </h3>
+
+              <div className="space-y-2.5">
                 {productPlans.map((plan) => {
                   const isSelected = selectedPlan?.id === plan.id;
-                  const isPopular = plan.popular;
 
                   return (
                     <div
                       key={plan.id}
                       onClick={() => selectPlanById(plan.id)}
-                      className={`relative rounded-2xl bg-white transition-all cursor-pointer flex flex-col justify-between p-5 border ${
+                      className={`relative rounded-xl bg-white p-3.5 sm:p-4 border transition-all cursor-pointer shadow-2xs ${
                         isSelected
-                          ? "border-[#0066cc] shadow-md ring-2 ring-[#0066cc]/20"
-                          : isPopular
-                          ? "border-[#0066cc] shadow-sm"
-                          : "border-[#e0e7ee] hover:border-blue-300"
+                          ? "border-[#0066cc] ring-2 ring-[#0066cc]/20 shadow-xs"
+                          : "border-[#d8e2eb] hover:border-blue-300"
                       }`}
                     >
-                      {/* Popular Badge */}
-                      {isPopular && (
-                        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#0066cc] text-white text-[10px] font-black tracking-wider uppercase py-0.5 px-3 rounded-full shadow-sm">
-                          Más popular
+                      {/* Checkmark circle in top right matching Image 1 */}
+                      {isSelected && (
+                        <div className="absolute top-3.5 right-3.5 w-5 h-5 rounded-full bg-[#0066cc] text-white flex items-center justify-center shadow-xs">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
                         </div>
                       )}
 
-                      <div className="space-y-3">
-                        <div>
-                          <h3 className="font-black text-lg text-[#102a45]">
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                        {/* Plan Name & Price */}
+                        <div className="sm:col-span-6 space-y-0.5">
+                          <h4 className="font-black text-sm text-[#0c243e]">
                             {plan.name}
-                          </h3>
-                          <p className="text-[11px] text-[#5e748d] min-h-[30px] leading-tight mt-1">
-                            {plan.description || "Solución completa para tu negocio."}
+                          </h4>
+                          <p className="text-[11px] text-[#637992]">
+                            {plan.description || "Ideal para negocios en crecimiento"}
                           </p>
-                        </div>
-
-                        {/* Price */}
-                        <div className="pt-2 border-t border-slate-100">
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-black text-[#102a45]">
-                              $ {plan.price_amount}
+                          <div className="pt-1.5">
+                            <span className="text-xl font-black text-[#0c243e]">
+                              $ {Number(plan.price_amount).toFixed(2)}
                             </span>
-                            <span className="text-xs text-[#5e748d] font-medium">
+                            <span className="text-[11px] text-[#637992] font-medium ml-1">
                               / {plan.duration_days ? `${plan.duration_days} días` : "mes"}
                             </span>
                           </div>
                         </div>
 
-                        {/* Feature items */}
-                        <ul className="space-y-2 pt-2 text-xs">
-                          {(plan.features || [
-                            "Registro de ingresos y gastos",
-                            "Inventario básico",
-                            "Reportes contables",
-                            "Soporte técnico"
-                          ]).map((feat, idx) => (
-                            <li key={idx} className="flex items-start gap-2 text-[#2c435a] leading-tight">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                              <span>{feat}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* Action Button */}
-                      <div className="mt-5 pt-3">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            selectPlanById(plan.id);
-                          }}
-                          className={`w-full py-2.5 px-3 rounded-xl font-bold text-xs transition-all tracking-wide cursor-pointer ${
-                            isPopular || isSelected
-                              ? "bg-[#0066cc] text-white shadow hover:bg-[#0052a3]"
-                              : "border border-[#0066cc] text-[#0066cc] bg-white hover:bg-blue-50"
-                          }`}
-                        >
-                          {isSelected ? "Plan seleccionado ✓" : "Seleccionar plan"}
-                        </button>
+                        {/* Plan Features column matching Image 1 */}
+                        <div className="sm:col-span-6 border-t sm:border-t-0 sm:border-l border-slate-100 sm:pl-3 pt-2 sm:pt-0">
+                          <ul className="space-y-1 text-xs text-[#2c4561]">
+                            {(plan.features || [
+                              "1 equipo",
+                              "1 usuario",
+                              "Soporte técnico"
+                            ]).map((feat, idx) => (
+                              <li key={idx} className="flex items-center gap-1.5">
+                                <span className="text-[#0066cc] font-bold text-xs">✓</span>
+                                <span className="text-[11.5px]">{feat}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </section>
+            </div>
 
-            {/* 3. ¿Qué incluye cada plan? Section */}
-            <section className="bg-white border border-[#e0e7ee] rounded-2xl p-6 space-y-4 shadow-sm">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0066cc] flex items-center justify-center font-bold">
-                  ★
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-[#102a45] text-base">
-                    ¿Qué incluye cada plan?
-                  </h3>
-                  <p className="text-xs text-[#637992]">
-                    Todas las versiones incluyen actualizaciones y soporte técnico.
-                  </p>
-                </div>
-              </div>
+            {/* 3. Info Notice */}
+            <div className="bg-[#eff6ff] border border-[#cbe0fb] rounded-xl p-3 flex items-start gap-2.5 text-xs text-[#1d4674]">
+              <span className="text-[#0066cc] font-bold text-sm">ⓘ</span>
+              <p className="text-[11.5px] leading-snug">
+                El plan seleccionado incluye el acceso al software y actualizaciones durante el período contratado.
+              </p>
+            </div>
 
-              {/* 4 Cards Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                <div className="p-3.5 bg-[#f8fafc] border border-slate-100 rounded-xl text-center space-y-2">
-                  <div className="w-8 h-8 mx-auto rounded-lg bg-blue-100/70 text-[#0066cc] flex items-center justify-center">
-                    <FileText className="w-4 h-4" />
-                  </div>
-                  <div className="text-xs font-bold text-[#102a45] leading-tight">
-                    Contabilidad completa
-                  </div>
+            {/* 4. Descarga el instalador Card matching Image 1 */}
+            <div className="bg-white border border-[#d8e2eb] rounded-xl p-4 shadow-2xs space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0066cc] flex items-center justify-center flex-shrink-0">
+                  <Download className="w-4 h-4" />
                 </div>
-
-                <div className="p-3.5 bg-[#f8fafc] border border-slate-100 rounded-xl text-center space-y-2">
-                  <div className="w-8 h-8 mx-auto rounded-lg bg-blue-100/70 text-[#0066cc] flex items-center justify-center">
-                    <Boxes className="w-4 h-4" />
-                  </div>
-                  <div className="text-xs font-bold text-[#102a45] leading-tight">
-                    Inventario y almacén
-                  </div>
-                </div>
-
-                <div className="p-3.5 bg-[#f8fafc] border border-slate-100 rounded-xl text-center space-y-2">
-                  <div className="w-8 h-8 mx-auto rounded-lg bg-blue-100/70 text-[#0066cc] flex items-center justify-center">
-                    <BarChart3 className="w-4 h-4" />
-                  </div>
-                  <div className="text-xs font-bold text-[#102a45] leading-tight">
-                    Reportes y estadísticas
-                  </div>
-                </div>
-
-                <div className="p-3.5 bg-[#f8fafc] border border-slate-100 rounded-xl text-center space-y-2">
-                  <div className="w-8 h-8 mx-auto rounded-lg bg-blue-100/70 text-[#0066cc] flex items-center justify-center">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div className="text-xs font-bold text-[#102a45] leading-tight">
-                    Seguridad y respaldo
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* 4. Bottom Support Banner */}
-            <section className="bg-white border border-[#e0e7ee] rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-50 text-[#0066cc] flex items-center justify-center flex-shrink-0">
-                  <Headphones className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-[#102a45]">
-                    ¿Necesitas ayuda?
+                <div className="space-y-0.5">
+                  <h4 className="font-black text-sm text-[#0c243e]">
+                    Descarga el instalador
                   </h4>
-                  <p className="text-xs text-[#5e748d]">
-                    Estamos para asesorarte. Contáctanos por WhatsApp o visita nuestro portal.
+                  <p className="text-[11px] text-[#5b728b] leading-tight">
+                    Una vez aprobado tu pago, recibirás la licencia y podrás descargar el instalador desde tu panel de cliente.
                   </p>
                 </div>
               </div>
 
               <a
-                href={`https://wa.me/${whatsappAdminPhone.replace(/\D/g, "").replace(/^0/, "58")}?text=${encodeURIComponent("Hola, deseo recibir asesoría sobre los planes de SICOVEN.")}`}
+                href={`https://wa.me/${whatsappAdminPhone.replace(/\D/g, "").replace(/^0/, "58")}?text=${encodeURIComponent("Hola, deseo solicitar el enlace de descarga del instalador demo de SICOVEN.")}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="whitespace-nowrap px-4 py-2 border border-[#0066cc] text-[#0066cc] rounded-xl text-xs font-bold hover:bg-blue-50 transition-colors flex items-center gap-1.5"
+                className="w-full py-2.5 px-3 bg-[#0c243e] hover:bg-[#153a60] text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
               >
-                <span>Contactar asesor</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                {/* Windows 4-square flag icon */}
+                <div className="grid grid-cols-2 gap-0.5 w-3 h-3">
+                  <span className="bg-white w-1.5 h-1.5" />
+                  <span className="bg-white w-1.5 h-1.5" />
+                  <span className="bg-white w-1.5 h-1.5" />
+                  <span className="bg-white w-1.5 h-1.5" />
+                </div>
+                <span>Descargar instalador (demo)</span>
               </a>
-            </section>
+            </div>
           </div>
 
           {/* ========================================================= */}
-          {/* RIGHT COLUMN: Formulario de Compra y Reporte de Pago      */}
+          {/* RIGHT COLUMN: Reportar Pago Móvil Form matching Image 1   */}
           {/* ========================================================= */}
-          <div className="lg:col-span-6 xl:col-span-6 bg-white border border-[#dde4ec] rounded-2xl p-6 sm:p-8 shadow-sm">
+          <div className="lg:col-span-7 bg-white border border-[#d8e2eb] rounded-xl p-4 sm:p-6 shadow-2xs">
             {/* Header */}
-            <div className="flex items-start gap-3 pb-6 border-b border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#0066cc] flex items-center justify-center flex-shrink-0">
-                <ShoppingCart className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-xl font-black text-[#102a45] tracking-tight">
-                  Formulario de Compra y Reporte de Pago
-                </h2>
-                <p className="text-xs text-[#637992] mt-0.5">
-                  Completa tus datos y reporta tu pago para procesar la activación de tu licencia.
-                </p>
-              </div>
-            </div>
-
-            <div role="alert" className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
-              <p className="font-extrabold">Importante: no cierres esta página todavía.</p>
-              <p className="mt-1 leading-relaxed">Mantén esta página abierta hasta que tu pago sea revisado y se emita tu certificado/licencia. Si se cierra accidentalmente, puedes volver a esta página y usar «Consultar Certificado» con tu documento de identidad/RIF y la referencia bancaria completa para revisar o recuperar una licencia aprobada.</p>
+            <div className="pb-3 border-b border-slate-100">
+              <h2 className="text-xl font-black text-[#0c243e] tracking-tight">
+                Reportar Pago Móvil
+              </h2>
+              <p className="text-xs text-[#5b728b] mt-0.5">
+                Completa el formulario con los datos de tu pago para que podamos verificarlo y activar tu licencia.
+              </p>
             </div>
 
             {loading ? (
-              <div className="py-16 text-center space-y-3">
-                <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
-                <p className="text-xs text-slate-500 font-medium">Cargando opciones comerciales…</p>
+              <div className="py-12 text-center space-y-2">
+                <RefreshCw className="w-6 h-6 text-blue-600 animate-spin mx-auto" />
+                <p className="text-xs text-slate-500 font-medium">Cargando formulario comercial…</p>
               </div>
             ) : (
-              <form onSubmit={submit} className="mt-6 space-y-6">
-                {/* 1. Datos del titular */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-extrabold text-sm text-[#102a45]">
-                      1. Datos del titular
+              <form onSubmit={submit} className="mt-4 space-y-4">
+                {/* 1. Datos del cliente (nuevo cliente) */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#0066cc] text-white flex items-center justify-center font-black text-xs">
+                      1
+                    </span>
+                    <h3 className="font-extrabold text-xs text-[#0c243e] uppercase tracking-wide">
+                      Datos del cliente (nuevo cliente)
                     </h3>
-                    {/* Customer type toggle */}
-                    <div className="inline-flex p-1 bg-slate-100 rounded-lg text-xs font-medium">
-                      <button
-                        type="button"
-                        onClick={() => setCustomerType("person")}
-                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                          customerType === "person" ? "bg-white text-[#102a45] font-bold shadow-sm" : "text-slate-500"
-                        }`}
-                      >
-                        Persona natural
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCustomerType("company")}
-                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                          customerType === "company" ? "bg-white text-[#102a45] font-bold shadow-sm" : "text-slate-500"
-                        }`}
-                      >
-                        Empresa
-                      </button>
-                    </div>
                   </div>
 
-                  {customerType === "person" ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                          Nombres *
-                        </label>
-                        <input
-                          required
-                          type="text"
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                          placeholder="Ej. Juan Carlos"
-                          className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                          Apellidos *
-                        </label>
-                        <input
-                          required
-                          type="text"
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
-                          placeholder="Ej. Pérez García"
-                          className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                          Cédula / RIF *
-                        </label>
-                        <input
-                          required
-                          type="text"
-                          value={identityDocument}
-                          onChange={(e) => setIdentityDocument(e.target.value)}
-                          placeholder="Ej. V-12345678"
-                          className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                          RIF Personal (Opcional)
-                        </label>
-                        <input
-                          type="text"
-                          value={taxId}
-                          onChange={(e) => setTaxId(e.target.value)}
-                          placeholder="Ej. V123456780"
-                          className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                          Razón Social / Nombre Comercial *
-                        </label>
-                        <input
-                          required
-                          type="text"
-                          value={legalName}
-                          onChange={(e) => setLegalName(e.target.value)}
-                          placeholder="Ej. Distribuidora Los Andes C.A."
-                          className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                          RIF Jurídico *
-                        </label>
-                        <input
-                          required
-                          type="text"
-                          value={identityDocument}
-                          onChange={(e) => {
-                            setIdentityDocument(e.target.value);
-                            setTaxId(e.target.value);
-                          }}
-                          placeholder="Ej. J-12345678-0"
-                          className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                          Representante Legal (Opcional)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Ej. Juan Pérez"
-                          className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
-                        />
-                      </div>
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-xs font-medium text-[#3b536e] mb-1">
+                      Nombre y apellidos o razón social *
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Ej. Juan Pérez o Comercial ABC, C.A."
+                      className="w-full px-3 py-2 rounded-lg border border-[#d4dfe8] text-xs text-[#0c243e] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
+                    />
+                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-xs font-semibold text-[#3a526d] mb-1">
+                      <label className="block text-xs font-medium text-[#3b536e] mb-1">
+                        Cédula o RIF *
+                      </label>
+                      <input
+                        required
+                        type="text"
+                        value={identityDocument}
+                        onChange={(e) => setIdentityDocument(e.target.value)}
+                        placeholder="Ej. V-12345678 o J123456789"
+                        className="w-full px-3 py-2 rounded-lg border border-[#d4dfe8] text-xs text-[#0c243e] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-[#3b536e] mb-1">
                         Teléfono *
                       </label>
                       <input
@@ -1009,168 +878,55 @@ export default function BuySoftwarePage() {
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="Ej. 0412 123 4567"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
+                        className="w-full px-3 py-2 rounded-lg border border-[#d4dfe8] text-xs text-[#0c243e] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
                       />
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                        Correo electrónico
+                      <label className="block text-xs font-medium text-[#3b536e] mb-1">
+                        Correo electrónico (opcional)
                       </label>
                       <input
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Ej. correo@dominio.com"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
+                        placeholder="Ej. usuario@correo.com"
+                        className="w-full px-3 py-2 rounded-lg border border-[#d4dfe8] text-xs text-[#0c243e] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-[#3b536e] mb-1">
+                        Dirección (opcional)
+                      </label>
+                      <input
+                        type="text"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="Ej. Av. Principal, Casa 123"
+                        className="w-full px-3 py-2 rounded-lg border border-[#d4dfe8] text-xs text-[#0c243e] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* 2. Producto y plan seleccionado */}
-                <div className="space-y-3 pt-2">
-                  <h3 className="font-extrabold text-sm text-[#102a45]">
-                    2. Producto y plan seleccionado
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {!productLocked && (
-                      <div>
-                        <label className="block text-xs font-semibold text-[#3a526d] mb-1">Producto *</label>
-                        <select value={productId} onChange={(e) => { const nextId = e.target.value; setProductId(nextId); const firstPlan = plans.find((p) => p.product_id === nextId); setPlanId(firstPlan?.id || ""); setAmount(firstPlan ? String(firstPlan.price_amount) : ""); }} className="w-full px-3 py-2.5 rounded-lg border border-[#d6dfe7] text-sm bg-white text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                          {products.map((p) => <option key={p.id} value={p.id}>{p.name} {p.edition ? "· " + p.edition : ""}</option>)}
-                        </select>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                        Plan *
-                      </label>
-                      <select
-                        value={planId}
-                        onChange={(e) => selectPlanById(e.target.value)}
-                        className="w-full px-3 py-2.5 rounded-lg border border-[#d6dfe7] text-sm bg-white text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      >
-                        {productPlans.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                        Precio
-                      </label>
-                      <div className="px-3 py-2.5 rounded-lg bg-[#f8fafc] border border-[#d6dfe7] text-sm font-bold text-[#102a45]">
-                        $ {selectedPlan?.price_amount || 49} / mes
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Datos del pago (Con logos oficiales Banco de Venezuela y Mercantil) */}
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-extrabold text-sm text-[#102a45]">
-                      3. Datos del pago (Pago Móvil / Transferencia)
+                {/* 2. Datos del pago móvil */}
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#0066cc] text-white flex items-center justify-center font-black text-xs">
+                      2
+                    </span>
+                    <h3 className="font-extrabold text-xs text-[#0c243e] uppercase tracking-wide">
+                      Datos del pago móvil
                     </h3>
                   </div>
 
-                  {/* Bank selector cards with official uploaded logos */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-2">
-                    {banks.map((b) => {
-                      const isBDV = b.bank_code === "BDV" || b.bank_name.toLowerCase().includes("venezuela");
-                      const isSelected = selectedBank?.id === b.id;
-                      const logoSrc = isBDV
-                        ? "/assets/aistudio/banco_de_venezuela_128_25540008.png"
-                        : "/assets/aistudio/banco_mercantil_128_df07a2c8.png";
-
-                      return (
-                        <button
-                          key={b.id}
-                          type="button"
-                          onClick={() => setDestinationBankId(b.id)}
-                          className={`p-3 rounded-xl border flex items-center gap-3 transition-all text-left cursor-pointer ${
-                            isSelected
-                              ? "border-[#0066cc] bg-blue-50/70 shadow-sm ring-2 ring-[#0066cc]/20"
-                              : "border-slate-200 bg-white hover:border-slate-300"
-                          }`}
-                        >
-                          <div className="w-14 h-10 bg-white rounded-lg p-1 border border-slate-100 flex items-center justify-center flex-shrink-0 shadow-xs">
-                            <img
-                              src={logoSrc}
-                              alt={b.bank_name}
-                              className="max-h-8 max-w-full object-contain"
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="text-xs font-bold text-[#102a45] block truncate">
-                              {b.bank_name}
-                            </span>
-                            <span className="text-[10px] text-slate-500 font-mono">
-                              Pago Móvil: {b.phone_number}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Selected Bank Detailed Card with Official Logo */}
-                  {selectedBank && (
-                    <div className="bg-[#f8fafc] border border-[#d7e2ed] rounded-xl p-4 text-xs space-y-3 shadow-xs">
-                      <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
-                        <div className="bg-white p-1.5 rounded-lg border border-slate-200 shadow-xs">
-                          <img
-                            src={
-                              selectedBank.bank_code === "BDV" || selectedBank.bank_name.toLowerCase().includes("venezuela")
-                                ? "/assets/aistudio/banco_de_venezuela_128_25540008.png"
-                                : "/assets/aistudio/banco_mercantil_128_df07a2c8.png"
-                            }
-                            alt={selectedBank.bank_name}
-                            className="h-7 w-auto object-contain"
-                          />
-                        </div>
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                            Cuenta Receptora Oficial
-                          </span>
-                          <strong className="text-sm font-bold text-[#102a45]">
-                            {selectedBank.bank_name}
-                          </strong>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[#2c435a]">
-                        <div>
-                          <span className="text-[10px] text-slate-500 block">Titular:</span>
-                          <strong className="font-semibold text-xs">{selectedBank.holder_name || "EFASfreelancer C.A."}</strong>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-500 block">Cédula / RIF:</span>
-                          <strong className="font-semibold text-xs">{selectedBank.identity_document}</strong>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-500 block">Teléfono Pago Móvil:</span>
-                          <strong className="font-semibold text-xs text-[#0066cc] font-mono">{selectedBank.phone_number}</strong>
-                        </div>
-                        {selectedBank.account_number && (
-                          <div className="col-span-2 sm:col-span-3 pt-1 border-t border-slate-100">
-                            <span className="text-[10px] text-slate-500 block">Número de cuenta bancaria:</span>
-                            <span className="font-mono text-xs text-[#102a45] font-semibold">{selectedBank.account_number}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                        Monto pagado *
-                      </label>
+                  <div>
+                    <label className="block text-xs font-medium text-[#3b536e] mb-1">
+                      Monto pagado *
+                    </label>
+                    <div className="relative">
                       <input
                         required
                         type="number"
@@ -1178,13 +934,81 @@ export default function BuySoftwarePage() {
                         min="0.01"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
-                        placeholder="Ej. 49.00"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        placeholder="Ej. 50.00"
+                        className="w-full px-3 py-2 pr-12 rounded-lg border border-[#d4dfe8] text-xs text-[#0c243e] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
                       />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                        USD
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-[#3b536e] mb-1">
+                      Plan seleccionado *
+                    </label>
+                    <select
+                      value={planId}
+                      onChange={(e) => selectPlanById(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-[#d4dfe8] text-xs text-[#0c243e] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
+                    >
+                      {productPlans.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — $ {Number(p.price_amount).toFixed(2)} USD
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-medium text-[#3b536e]">
+                          Referencia bancaria (mín. 6 dígitos) *
+                        </label>
+                        {cleanReference.length > 0 && (
+                          <span className={`text-[10px] font-mono ${isReferenceValid ? "text-emerald-600 font-bold" : "text-amber-600 font-semibold"}`}>
+                            {cleanReference.length} dígitos {isReferenceValid ? "✓" : ""}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        required
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        minLength={6}
+                        maxLength={30}
+                        value={referenceFull}
+                        onChange={(e) => {
+                          setReferenceFull(e.target.value.replace(/\D/g, "").slice(0, 30));
+                          if (!referenceTouched) setReferenceTouched(true);
+                        }}
+                        onBlur={() => setReferenceTouched(true)}
+                        placeholder="Ej. 482731"
+                        className={`w-full px-3 py-2 rounded-lg border text-xs text-[#0c243e] font-mono tracking-wider focus:outline-none focus:ring-2 ${
+                          referenceError
+                            ? "border-red-400 focus:border-red-500 focus:ring-red-500/20 bg-red-50/20"
+                            : isReferenceValid
+                            ? "border-emerald-500 focus:border-emerald-600 focus:ring-emerald-500/20 bg-emerald-50/10"
+                            : "border-[#d4dfe8] focus:border-[#0066cc] focus:ring-blue-500/20"
+                        }`}
+                      />
+                      {referenceError ? (
+                        <p className="mt-1 text-[11px] text-red-600 flex items-center gap-1 font-medium">
+                          <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                          <span>{referenceError}</span>
+                        </p>
+                      ) : isReferenceValid ? (
+                        <p className="mt-1 text-[11px] text-emerald-600 flex items-center gap-1 font-medium">
+                          <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+                          <span>Referencia numérica válida.</span>
+                        </p>
+                      ) : null}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-[#3a526d] mb-1">
+                      <label className="block text-xs font-medium text-[#3b536e] mb-1">
                         Fecha del pago *
                       </label>
                       <input
@@ -1193,190 +1017,154 @@ export default function BuySoftwarePage() {
                         max={new Intl.DateTimeFormat("en-CA", { timeZone: "America/Caracas", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())}
                         value={paymentDate}
                         onChange={(e) => setPaymentDate(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        className="w-full px-3 py-2 rounded-lg border border-[#d4dfe8] text-xs text-[#0c243e] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
                       />
                     </div>
+                  </div>
+                </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                        Banco de origen *
-                      </label>
-                      <select
-                        value={sourceBank}
-                        onChange={(e) => setSourceBank(e.target.value)}
-                        className="w-full px-3 py-2.5 rounded-lg border border-[#d6dfe7] text-sm bg-white text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      >
-                        <option>Banco de Venezuela</option>
-                        <option>Mercantil</option>
-                        <option>Banesco</option>
-                        <option>BBVA Provincial</option>
-                        <option>BNC</option>
-                        <option>Bancamiga</option>
-                        <option>Otro banco nacional</option>
-                      </select>
-                    </div>
+                {/* 3. Bancos */}
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#0066cc] text-white flex items-center justify-center font-black text-xs">
+                      3
+                    </span>
+                    <h3 className="font-extrabold text-xs text-[#0c243e] uppercase tracking-wide">
+                      Bancos
+                    </h3>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                      Referencia bancaria completa *
+                    <label className="block text-xs font-medium text-[#3b536e] mb-1">
+                      Banco de origen *
                     </label>
-                    <input
-                      required
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      minLength={6}
-                      maxLength={30}
-                      pattern="[0-9]{6,30}"
-                      value={referenceFull}
-                      onChange={(e) => setReferenceFull(e.target.value.replace(/\D/g, "").slice(0, 30))}
-                      placeholder="Todos los dígitos de la referencia"
-                      className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono tracking-wider"
-                    />
-                    <p className="mt-1 text-xs text-slate-500">Escribe la referencia completa tal como aparece en el comprobante; no ingreses solo los últimos seis dígitos.</p>
-                  </div>
-                </div>
-
-                {/* 4. Reporte de pago & WhatsApp Notice */}
-                <div className="space-y-3 pt-2">
-                  <h3 className="font-extrabold text-sm text-[#102a45]">
-                    4. Reporte de pago
-                  </h3>
-
-                  {/* Info Notice */}
-                  <div className="bg-[#eff6ff] border border-[#bed8fb] rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-[#1e4a7a]">
-                    <Info className="w-4 h-4 text-[#0066cc] flex-shrink-0 mt-0.5" />
-                    <span>
-                      Al enviar el reporte de pago, podrás notificar directamente por WhatsApp al administrador de EFASfreelancer para agilizar la aprobación y entrega de tu licencia.
-                    </span>
+                    <select
+                      value={sourceBank}
+                      onChange={(e) => setSourceBank(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-[#d4dfe8] text-xs text-[#0c243e] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
+                    >
+                      <option>Banco de Venezuela</option>
+                      <option>Mercantil</option>
+                      <option>Banesco</option>
+                      <option>BBVA Provincial</option>
+                      <option>BNC</option>
+                      <option>Bancamiga</option>
+                      <option>Otro banco nacional</option>
+                    </select>
                   </div>
 
-                  {/* Big WhatsApp Banner Button */}
-                  <a
-                    href={`https://wa.me/${whatsappAdminPhone.replace(/\D/g, "").replace(/^0/, "58")}?text=${encodeURIComponent([
-                      "Hola, EFASfreelancer. He realizado el reporte de pago en SICOVEN para activación de licencia.",
-                      `Titular: ${customerType === "person" ? `${firstName} ${lastName}`.trim() : legalName}`,
-                      `Documento/RIF: ${identityDocument}`,
-                      `Plan: ${selectedPlan?.name}`,
-                      `Monto: ${amount} USD`,
-                      `Referencia bancaria completa: ${referenceFull}`,
-                      "Quedo a la espera de la validación y emisión de mi certificado."
-                    ].join("\n"))}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full bg-[#16a34a] hover:bg-[#15803d] text-white p-3.5 rounded-xl font-bold text-sm flex items-center justify-between shadow-md transition-all group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
-                        <Send className="w-4 h-4" />
-                      </div>
-                      <span>Avisar por WhatsApp y solicitar aprobación</span>
-                    </div>
-                    <span className="font-mono text-emerald-100 bg-black/15 px-2.5 py-1 rounded text-xs">
-                      {whatsappAdminPhone.length >= 7
-                        ? `${whatsappAdminPhone.slice(0, 4)} ••• ${whatsappAdminPhone.slice(-4)}`
-                        : "0412 ••• 3996"}
-                    </span>
-                  </a>
-
-                  {/* Two boxes side-by-side */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                    {/* File upload box */}
-                    <div className="border border-dashed border-[#ccd7e4] rounded-xl p-3.5 bg-[#fbfcfe] text-center space-y-1">
-                      <p className="text-[11px] font-semibold text-[#3b536e]">
-                        También puedes enviar el comprobante de pago (opcional)
-                      </p>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept="image/*,.pdf"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) setReceiptFileName(file.name);
-                        }}
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-medium text-[#3b536e] mb-1">
+                        Banco receptor *
+                      </label>
+                      <select
+                        value={destinationBankId}
+                        onChange={(e) => setDestinationBankId(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-[#d4dfe8] text-xs text-[#0c243e] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
                       >
-                        <Upload className="w-3.5 h-3.5 text-blue-600" />
-                        <span>{receiptFileName ? receiptFileName : "Seleccionar archivo"}</span>
-                      </button>
-                      <p className="text-[9px] text-slate-400">
-                        Formatos: JPG, PNG, PDF. Máx. 5 MB.
-                      </p>
+                        {banks.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.bank_name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
-                    {/* Important box */}
-                    <div className="border border-[#e2e8f0] rounded-xl p-3.5 bg-[#f8fafc] text-xs text-[#415b77] space-y-1">
-                      <div className="flex items-center gap-1.5 font-bold text-[#102a45]">
-                        <Info className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Importante</span>
+                    <div>
+                      <label className="block text-xs font-medium text-[#3b536e] mb-1">
+                        Cuenta receptora
+                      </label>
+                      <input
+                        readOnly
+                        type="text"
+                        value={selectedBank?.account_number || "0102-1234-56-7890123456"}
+                        className="w-full px-3 py-2 rounded-lg border border-[#d4dfe8] bg-[#f8fafc] text-xs text-[#4b6075] font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Bank Info Card with Official Logo matching Image 1 */}
+                  {selectedBank && (
+                    <div className="bg-[#f0f7fe] border border-[#d1e4fa] rounded-xl p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={
+                            selectedBank.bank_code === "BDV" || selectedBank.bank_name.toLowerCase().includes("venezuela")
+                              ? "/assets/aistudio/banco_de_venezuela_128_25540008.png"
+                              : "/assets/aistudio/banco_mercantil_128_df07a2c8.png"
+                          }
+                          alt={selectedBank.bank_name}
+                          className="h-9 w-auto object-contain flex-shrink-0"
+                        />
+                        <div>
+                          <strong className="text-sm font-bold text-[#0c243e] block">
+                            {selectedBank.bank_name}
+                          </strong>
+                          <span className="text-[10px] text-[#0066cc] font-semibold bg-white px-2 py-0.5 rounded border border-blue-200">
+                            Pago Móvil
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-[11px] leading-relaxed">
-                        Una vez reportado el pago y aprobado, el sistema generará automáticamente tu certificado de licencia según el plan adquirido.
-                      </p>
-                    </div>
-                  </div>
-                </div>
 
-                {/* 5. Resumen */}
-                <div className="pt-2">
-                  <h3 className="font-extrabold text-sm text-[#102a45] mb-2">
-                    5. Resumen
-                  </h3>
-                  <div className="bg-[#f0f5fa] border border-[#dce5ef] rounded-xl p-4 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="text-[10px] text-slate-500 block">Producto:</span>
-                      <strong className="text-sm font-bold text-[#102a45]">
-                        {products.find((p) => p.id === productId)?.name || "SICOVEN"}
-                      </strong>
+                      <div className="text-right text-xs space-y-0.5 sm:border-l border-blue-200/80 sm:pl-4 text-[#2e4763]">
+                        <div>
+                          <span className="text-slate-500 mr-2">Cédula o RIF:</span>
+                          <strong className="font-semibold">{selectedBank.identity_document}</strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 mr-2">Teléfono afiliado:</span>
+                          <strong className="font-semibold text-[#0066cc] font-mono">{selectedBank.phone_number}</strong>
+                        </div>
+                        {selectedBank.account_number && (
+                          <div>
+                            <span className="text-slate-500 mr-2">Cuenta:</span>
+                            <span className="font-mono text-[11px] font-semibold">{selectedBank.account_number}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-[10px] text-slate-500 block">Plan:</span>
-                      <strong className="text-sm font-bold text-[#102a45]">
-                        {selectedPlan?.name || "Profesional"}
-                      </strong>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-500 block">Precio:</span>
-                      <strong className="text-sm font-bold text-[#0066cc]">
-                        $ {selectedPlan?.price_amount || 49} / mes
-                      </strong>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Feedback notices */}
                 {error && (
-                  <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium flex items-center gap-2">
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 font-medium flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     <span>{error}</span>
                   </div>
                 )}
                 {success && (
-                  <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-medium flex items-center gap-2">
+                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-medium flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600" />
                     <span>{success}</span>
                   </div>
                 )}
 
-                {/* Submit button */}
-                <button
-                  type="submit"
-                  disabled={sending || !selectedPlan}
-                  className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 shadow-md transition-all ${
-                    sending || !selectedPlan
-                      ? "bg-slate-400 cursor-not-allowed"
-                      : "bg-[#143252] hover:bg-[#0c2239] cursor-pointer"
-                  }`}
-                >
-                  <Send className="w-4 h-4" />
-                  <span>{sending ? "Enviando reporte de pago…" : "Enviar reporte de pago"}</span>
-                </button>
+                {/* Submit button matching Image 1 */}
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={sending || !selectedPlan || !isReferenceValid}
+                    title={
+                      !isReferenceValid
+                        ? "Ingresa una referencia bancaria numérica de al menos 6 dígitos para enviar el reporte"
+                        : undefined
+                    }
+                    className={`w-full py-3 px-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 shadow-md transition-all ${
+                      sending || !selectedPlan || !isReferenceValid
+                        ? "bg-slate-400 cursor-not-allowed opacity-75"
+                        : "bg-[#0c243e] hover:bg-[#14365d] cursor-pointer"
+                    }`}
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>{sending ? "Enviando reporte de pago…" : "Enviar reporte de pago"}</span>
+                  </button>
+                  <p className="mt-2 text-center text-[11px] text-slate-500 flex items-center justify-center gap-1">
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    <span>Tu información está segura y será verificada por nuestro equipo.</span>
+                  </p>
+                </div>
               </form>
             )}
           </div>
@@ -1387,25 +1175,25 @@ export default function BuySoftwarePage() {
       {/* MODAL: OFFICIAL CERTIFICATE OF LICENSE (DOWNLOAD / PRINT) */}
       {/* ========================================================= */}
       {showCertificateModal && activeReport?.certificate && (
-        <div className="certificate-modal fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-start justify-center p-3 sm:p-5 overflow-y-auto">
-          <div className="certificate-sheet bg-white rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden my-0 sm:my-2 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden my-4 animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Actions Bar (hidden when printing) */}
-            <div className="bg-[#0f243c] text-white p-4 flex items-center justify-between border-b border-slate-700 print:hidden">
-              <div className="flex items-center gap-2 text-sm font-bold">
+            <div className="bg-[#0c243e] text-white p-3.5 flex items-center justify-between border-b border-slate-700 print:hidden">
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-bold">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 <span>Certificado Oficial de Licencia SICOVEN</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={handlePrintCertificate}
-                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow cursor-pointer"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>Descargar PDF / Imprimir</span>
+                  <span>Imprimir / PDF</span>
                 </button>
                 <button
                   onClick={() => setShowCertificateModal(false)}
-                  className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1413,102 +1201,98 @@ export default function BuySoftwarePage() {
             </div>
 
             {/* PRINTABLE CERTIFICATE DOCUMENT WITH ORIGINAL EFASFREELANCER LOGO */}
-            <div id="printable-certificate" className="p-5 sm:p-10 bg-[#fdfefe] relative text-[#1c2e45]">
-              {/* Outer Security Border */}
-              <div className="border-4 border-[#0c2540] p-6 sm:p-8 rounded-xl relative overflow-hidden bg-white shadow-inner">
-                {/* Original EFASfreelancer Watermark in background */}
+            <div id="printable-certificate" className="p-6 sm:p-10 bg-[#fdfefe] relative text-[#1c2e45]">
+              <div className="border-4 border-[#0c243e] p-5 sm:p-7 rounded-xl relative overflow-hidden bg-white shadow-inner">
+                {/* Watermark in background */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.04]">
                   <img
                     src="/efasfreelancer-logo.svg"
                     alt=""
-                    className="w-[480px] h-auto object-contain"
+                    className="w-[420px] h-auto object-contain"
                   />
                 </div>
 
                 {/* Certificate Header with Original EFASfreelancer Logo */}
-                <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between border-b-2 border-slate-200 pb-6 mb-6 gap-4">
-                  <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between border-b-2 border-slate-200 pb-4 mb-5 gap-3">
+                  <div className="flex items-center gap-3">
                     <img
                       src="/efasfreelancer-logo.svg"
                       alt="EFASfreelancer Soluciones Digitales"
-                      className="h-12 sm:h-14 w-auto object-contain"
+                      className="h-10 sm:h-12 w-auto object-contain"
                     />
-                    <div className="border-l-2 border-slate-200 pl-4 text-left">
-                      <h2 className="text-xl font-black text-[#0c2540] tracking-tight uppercase">
+                    <div className="border-l-2 border-slate-200 pl-3 text-left">
+                      <h2 className="text-lg font-black text-[#0c243e] tracking-tight uppercase">
                         SICOVEN
                       </h2>
-                      <p className="text-[10px] text-slate-500 font-bold tracking-wider uppercase">
+                      <p className="text-[9px] text-slate-500 font-bold tracking-wider uppercase">
                         Sistema Contable y de Gestión · RIF V-13313521-5
                       </p>
                     </div>
                   </div>
 
                   <div className="text-center sm:text-right">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-widest">
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-widest">
                       Certificado Nº
                     </span>
-                    <span className="text-sm font-mono font-bold text-[#0c2540]">
+                    <span className="text-xs font-mono font-bold text-[#0c243e]">
                       {activeReport.certificate.certificateId}
                     </span>
-                    <span className="text-[10px] text-emerald-700 font-bold block mt-1 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    <span className="text-[9px] text-emerald-700 font-bold block mt-0.5 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                       EMISIÓN OFICIAL Y VÁLIDA
                     </span>
                   </div>
                 </div>
 
                 {/* Certificate Title */}
-                <div className="text-center my-6 space-y-1">
-                  <span className="text-xs font-black uppercase tracking-[0.25em] text-[#0066cc]">
+                <div className="text-center my-4 space-y-0.5">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0066cc]">
                     Documento de Autenticidad
                   </span>
-                  <h1 className="text-2xl sm:text-3xl font-black text-[#0c2540] uppercase tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-black text-[#0c243e] uppercase tracking-tight">
                     Certificado de Licencia de Software
                   </h1>
-                  <p className="text-xs text-slate-600 max-w-lg mx-auto">
-                    Se certifica por medio del presente documento la titularidad y validez legal de uso del sistema según las condiciones comerciales adquiridas.
-                  </p>
                 </div>
 
                 {/* Key Details Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-4 bg-[#f8fafc] border border-slate-200 rounded-xl my-6 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 bg-[#f8fafc] border border-slate-200 rounded-xl my-4 text-xs">
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
                       Titular Autorizado
                     </span>
-                    <strong className="text-sm font-bold text-[#0c2540] block mt-0.5">
+                    <strong className="text-xs font-bold text-[#0c243e] block mt-0.5 truncate">
                       {activeReport.certificate.customerName}
                     </strong>
-                    <span className="text-[11px] text-slate-500 font-mono">
+                    <span className="text-[10px] text-slate-500 font-mono">
                       {activeReport.certificate.identityDocument}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
                       Software y Edición
                     </span>
-                    <strong className="text-sm font-bold text-[#0c2540] block mt-0.5">
+                    <strong className="text-xs font-bold text-[#0c243e] block mt-0.5 truncate">
                       {activeReport.certificate.productName}
                     </strong>
-                    <span className="text-[11px] text-slate-500">
+                    <span className="text-[10px] text-slate-500">
                       {activeReport.certificate.productEdition || "Sistema Contable"}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
                       Plan y Capacidad
                     </span>
-                    <strong className="text-sm font-bold text-[#0066cc] block mt-0.5">
+                    <strong className="text-xs font-bold text-[#0066cc] block mt-0.5 truncate">
                       {activeReport.certificate.licenseTypeName}
                     </strong>
-                    <span className="text-[11px] text-slate-500">
+                    <span className="text-[10px] text-slate-500">
                       {activeReport.certificate.maxActivations} Equipo(s) autorizado(s)
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
                       Fecha de Emisión
                     </span>
                     <span className="text-xs font-semibold text-slate-700 block mt-0.5">
@@ -1521,7 +1305,7 @@ export default function BuySoftwarePage() {
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
                       Vencimiento
                     </span>
                     <span className="text-xs font-semibold text-slate-700 block mt-0.5">
@@ -1531,12 +1315,12 @@ export default function BuySoftwarePage() {
                             month: "long",
                             day: "numeric"
                           })
-                        : "Vigencia permanente / según suscripción"}
+                        : "Vigencia permanente"}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
                       Estado de Pago
                     </span>
                     <span className="text-xs font-bold text-emerald-700 block mt-0.5">
@@ -1546,24 +1330,24 @@ export default function BuySoftwarePage() {
                 </div>
 
                 {/* PROMINENT LICENSE KEY BOX */}
-                <div className="bg-[#0c2540] text-white p-5 rounded-xl text-center space-y-2 my-6 shadow-md border-2 border-[#194b7a]">
-                  <span className="text-[11px] text-sky-200 uppercase font-black tracking-widest block">
+                <div className="bg-[#0c243e] text-white p-3.5 rounded-xl text-center space-y-1 my-4 shadow border border-[#194b7a]">
+                  <span className="text-[10px] text-sky-200 uppercase font-black tracking-widest block">
                     Clave de Activación Oficial del Software
                   </span>
-                  <div className="font-mono text-xl sm:text-2xl font-black text-amber-300 tracking-wider py-1 select-all">
+                  <div className="font-mono text-lg sm:text-xl font-black text-amber-300 tracking-wider py-0.5 select-all">
                     {activeReport.certificate.licenseKey}
                   </div>
-                  <p className="text-[10px] text-sky-100/70">
-                    Introduce esta clave exactamente como aparece en la ventana de activación de SICOVEN para Windows.
+                  <p className="text-[9.5px] text-sky-100/70">
+                    Introduce esta clave exactamente en la ventana de activación de SICOVEN para Windows.
                   </p>
                 </div>
 
                 {/* Quick Activation Steps */}
-                <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-2 text-xs">
-                  <h4 className="font-bold text-[#0c2540] uppercase tracking-wide text-[11px] flex items-center gap-1.5">
-                    <span>Guía rápida para activar tu sistema</span>
+                <div className="border border-slate-200 rounded-xl p-3 bg-white space-y-1.5 text-xs">
+                  <h4 className="font-bold text-[#0c243e] uppercase tracking-wide text-[10px]">
+                    Guía rápida para activar tu sistema:
                   </h4>
-                  <ol className="list-decimal list-inside space-y-1 text-slate-600 text-[11px] leading-relaxed">
+                  <ol className="list-decimal list-inside space-y-0.5 text-slate-600 text-[10.5px] leading-relaxed">
                     <li>Inicia <strong>SICOVEN</strong> en tu computadora con Windows.</li>
                     <li>Ve al menú principal y haz clic en <strong>&quot;Licencia&quot;</strong> o <strong>&quot;Activar Producto&quot;</strong>.</li>
                     <li>Pega tu clave oficial <strong>{activeReport.certificate.licenseKey}</strong> y presiona <strong>&quot;Activar&quot;</strong>.</li>
@@ -1571,7 +1355,7 @@ export default function BuySoftwarePage() {
                 </div>
 
                 {/* Footer and Signatures */}
-                <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] text-slate-400">
+                <div className="mt-5 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-[9.5px] text-slate-400">
                   <div className="text-center sm:text-left">
                     <p className="font-bold text-slate-600">SICOVEN CRM & Licensing System</p>
                     <p>EFASfreelancer Soluciones Digitales · Valencia, Venezuela</p>
@@ -1586,19 +1370,6 @@ export default function BuySoftwarePage() {
           </div>
         </div>
       )}
-
-      <style jsx global>{`
-        @media print {
-          @page { size: A4; margin: 10mm; }
-          html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; height: auto !important; overflow: visible !important; }
-          body * { visibility: hidden !important; }
-          .certificate-modal { position: static !important; display: block !important; overflow: visible !important; background: #fff !important; padding: 0 !important; backdrop-filter: none !important; }
-          .certificate-sheet { width: 100% !important; max-width: none !important; margin: 0 !important; border-radius: 0 !important; box-shadow: none !important; overflow: visible !important; }
-          #printable-certificate, #printable-certificate * { visibility: visible !important; }
-          #printable-certificate { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; padding: 0 !important; margin: 0 !important; background: #fff !important; }
-          .print\\:hidden { display: none !important; }
-        }
-      `}</style>
 
       {/* ========================================================= */}
       {/* MODAL: LOOKUP PAST REPORT OR LICENSE                      */}
@@ -1618,7 +1389,7 @@ export default function BuySoftwarePage() {
                 <Search className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-black text-lg text-[#102a45]">
+                <h3 className="font-black text-lg text-[#0c243e]">
                   Consultar Certificado
                 </h3>
                 <p className="text-xs text-slate-500">
@@ -1629,7 +1400,7 @@ export default function BuySoftwarePage() {
 
             <form onSubmit={handleLookup} className="space-y-3 pt-2">
               <div>
-                <label className="block text-xs font-semibold text-[#3a526d] mb-1">
+                <label className="block text-xs font-semibold text-[#3b536e] mb-1">
                   Cédula de Identidad o RIF *
                 </label>
                 <input
@@ -1637,23 +1408,23 @@ export default function BuySoftwarePage() {
                   type="text"
                   value={lookupDoc}
                   onChange={(e) => setLookupDoc(e.target.value)}
-                  placeholder="Ej. V-12345678 o J-12345678-0"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  placeholder="Ej. V-12345678 o J123456789"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#0c243e] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                  Referencia bancaria completa *
+                <label className="block text-xs font-semibold text-[#3b536e] mb-1">
+                  Referencia bancaria de pago *
                 </label>
                 <input
                   required
                   type="text"
-                  maxLength={6}
+                  minLength={6}
                   value={lookupRef}
                   onChange={(e) => setLookupRef(e.target.value.replace(/\D/g, "").slice(0, 30))}
-                  placeholder="Ej. 789012"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#102a45] font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  placeholder="Ej. 482731 (mínimo 6 dígitos)"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#d6dfe7] text-sm text-[#0c243e] font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
 
@@ -1676,12 +1447,14 @@ export default function BuySoftwarePage() {
         </div>
       )}
 
-      {/* Footer (No CRM dashboard link) */}
-      <footer className="mt-12 py-8 border-t border-slate-200 text-center text-xs text-slate-500 space-y-1">
+      {/* Compact Clean Footer matching Image 1 */}
+      <footer className="mt-8 py-5 border-t border-slate-200/80 text-center text-xs text-slate-500 space-y-1">
         <p className="font-semibold text-slate-700">
           EFASfreelancer Soluciones Digitales · RIF V-13313521-5
         </p>
-        <p>SICOVEN CRM · Pago Móvil y transferencias sujetos a conciliación bancaria.</p>
+        <p className="text-[11px] text-slate-400">
+          SICOVEN CRM · Pago Móvil y transferencias sujetos a conciliación bancaria.
+        </p>
       </footer>
     </div>
   );

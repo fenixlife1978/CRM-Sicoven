@@ -6,7 +6,7 @@ const COOKIE_NAME = "crm_sicoven_session";
 const SESSION_SECONDS = 60 * 60 * 8;
 
 function secretKey() {
-  const secret = process.env.SESSION_SECRET;
+  const secret = process.env.SESSION_SECRET || (process.env.NODE_ENV !== "production" ? "crm-sicoven-default-session-secret-key-32chars" : undefined);
   if (!secret || secret.length < 32) throw new Error("SESSION_SECRET debe tener al menos 32 caracteres.");
   return new TextEncoder().encode(secret);
 }

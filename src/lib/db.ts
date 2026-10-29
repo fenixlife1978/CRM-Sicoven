@@ -6,7 +6,13 @@ export function getDb(): Client {
   if (client) return client;
   const url = process.env.TURSO_DATABASE_URL ?? process.env.DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN ?? process.env.DATABASE_AUTH_TOKEN;
-  if (!url || !authToken) throw new Error("Faltan TURSO_DATABASE_URL y TURSO_AUTH_TOKEN en el entorno.");
+  if (!url || !authToken) {
+    if (process.env.NODE_ENV !== "production") {
+      client = createClient({ url: "file:crm_sicoven.db" });
+      return client;
+    }
+    throw new Error("Faltan TURSO_DATABASE_URL y TURSO_AUTH_TOKEN en el entorno.");
+  }
   client = createClient({ url, authToken });
   return client;
 }
@@ -176,4 +182,41 @@ export async function ensureSchema() {
   )`);
   await db.execute("CREATE INDEX IF NOT EXISTS admin_push_subscriptions_user_idx ON admin_push_subscriptions(user_id)");
 
+  const reportColumns = await db.execute("PRAGMA table_info(payment_reports)");
+  const existingReportColumns = new Set(reportColumns.rows.map((column) => String(column.name)));
+  if (!existingReportColumns.has("certificate_json")) await db.execute("ALTER TABLE payment_reports ADD COLUMN certificate_json TEXT");
+
+  // Seed default product and commercial plans if database has no active products
+  const prodCount = await db.execute("SELECT COUNT(*) AS count FROM products");
+  if (Number(prodCount.rows[0]?.count || 0) === 0) {
+    const prodId = "prod-sicoven";
+    await db.execute({
+      sql: "INSERT INTO products (id,name,product_code,edition,version,description,status) VALUES (?,?,?,?,?,?,'active')",
+      args: [prodId, "SICOVEN", "SICOVEN_DESKTOP", "Sistema Contable y de Gestión", "2.0", "Sistema contable y administrativo integral para empresas"]
+    });
+    await db.execute({
+      sql: "INSERT INTO commercial_plans (id,product_id,name,description,price_amount,currency,duration_days,max_activations,active) VALUES (?,?,?,?,?,?,30,?,1)",
+      args: ["plan-basico", prodId, "Básico", "Ideal para pequeñas empresas y emprendedores.", 29, "USD", 1]
+    });
+    await db.execute({
+      sql: "INSERT INTO commercial_plans (id,product_id,name,description,price_amount,currency,duration_days,max_activations,active) VALUES (?,?,?,?,?,?,30,?,1)",
+      args: ["plan-profesional", prodId, "Profesional", "Para empresas en crecimiento con mayor control.", 49, "USD", 2]
+    });
+    await db.execute({
+      sql: "INSERT INTO commercial_plans (id,product_id,name,description,price_amount,currency,duration_days,max_activations,active) VALUES (?,?,?,?,?,?,30,?,1)",
+      args: ["plan-empresarial", prodId, "Empresarial", "La solución completa para grandes operaciones.", 79, "USD", 5]
+    });
+  }
+
+  const bankCount = await db.execute("SELECT COUNT(*) AS count FROM payment_bank_accounts");
+  if (Number(bankCount.rows[0]?.count || 0) === 0) {
+    await db.execute({
+      sql: "INSERT INTO payment_bank_accounts (id,bank_code,bank_name,holder_name,identity_document,phone_number,account_number,active) VALUES (?,?,?,?,?,?,?,1)",
+      args: ["bank-bdv", "BDV", "Banco de Venezuela", "EFASfreelancer C.A.", "V-13313521-5", "04125773996", "01020000000000000000"]
+    });
+    await db.execute({
+      sql: "INSERT INTO payment_bank_accounts (id,bank_code,bank_name,holder_name,identity_document,phone_number,account_number,active) VALUES (?,?,?,?,?,?,?,1)",
+      args: ["bank-mercantil", "MERCANTIL", "Banco Mercantil", "EFASfreelancer C.A.", "V-13313521-5", "04125773996", "01050000000000000000"]
+    });
+  }
 }

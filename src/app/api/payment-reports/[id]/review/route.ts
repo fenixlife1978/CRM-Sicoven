@@ -96,7 +96,29 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
           VALUES (?,?,?,?,?,'pending',?,?,?,?,?,?,7,'once',?,?)`,
         args: [licenseId,customerId,String(report.product_id),keyHash,`…${rawKey.slice(-4)}`,startsAt,expiresAt,maxActivations,session.sub,String(report.plan_name),JSON.stringify(terms),Number(report.amount),String(report.currency || "USD")]
       });
-      await tx.execute({ sql: "UPDATE payment_reports SET status='approved',review_note=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,customer_id=?,license_id=? WHERE id=? AND status='pending_review'", args: [note || null,session.sub,customerId,licenseId,id] });
+
+      const certificate = {
+        certificateId: `SIC-CERT-${licenseId.slice(0,8).toUpperCase()}`,
+        issuedAt: startsAt,
+        licenseKey: rawKey,
+        licenseTypeName: String(report.plan_name),
+        startsAt,
+        expiresAt,
+        maxActivations,
+        terms,
+        customerName: type === "person" ? `${String(report.first_name)} ${String(report.last_name)}`.trim() : String(report.legal_name),
+        identityDocument: String(report.identity_document),
+        customerEmail: report.email ?? null,
+        customerPhone: String(report.phone),
+        productName: String(report.product_name),
+        productEdition: report.product_edition ? String(report.product_edition) : null,
+        productVersion: report.product_version ? String(report.product_version) : null
+      };
+
+      await tx.execute({
+        sql: "UPDATE payment_reports SET status='approved',review_note=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,customer_id=?,license_id=?,certificate_json=? WHERE id=? AND status='pending_review'",
+        args: [note || null,session.sub,customerId,licenseId,JSON.stringify(certificate),id]
+      });
       await tx.execute({ sql: "INSERT INTO license_billing_records (id,license_id,record_type,amount,currency,billing_cycle,period_start,period_end,due_at,paid_at,status,description,created_by) VALUES (?,?, 'initial',?,?, 'once',?,?,?,CURRENT_TIMESTAMP,'paid',?,?)", args: [randomUUID(),licenseId,Number(report.amount),String(report.currency || "USD"),startsAt,expiresAt,startsAt,`Pago Móvil aprobado · reporte ${id}`,session.sub] });
       await tx.execute({ sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),session.sub,"payment_approved_license_issued","payment_report",id,JSON.stringify({ customerId,licenseId,productId:report.product_id,planId:report.plan_id,amount:report.amount })] });
       await tx.commit();
@@ -104,13 +126,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         ok: true, status: "approved", customerId, licenseId,
         licenseKey: rawKey,
         warning: "La clave solo se muestra en esta respuesta. Guárdala ahora y entrega el certificado al cliente.",
-        certificate: {
-          certificateId: `SIC-CERT-${licenseId.slice(0,8).toUpperCase()}`, issuedAt: startsAt, licenseKey: rawKey,
-          licenseTypeName: String(report.plan_name), startsAt, expiresAt, maxActivations,
-          terms, customerName: type === "person" ? `${String(report.first_name)} ${String(report.last_name)}`.trim() : String(report.legal_name),
-          customerEmail: report.email ?? null, customerPhone: report.phone,
-          productName: report.product_name, productEdition: report.product_edition, productVersion: report.product_version
-        }
+        certificate
       }, { headers: noStore });
     } catch (error) {
       await tx.rollback().catch(() => undefined);

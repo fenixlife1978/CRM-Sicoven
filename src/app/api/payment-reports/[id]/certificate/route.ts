@@ -12,7 +12,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     const { id } = await context.params;
     const identityDocument = (request.nextUrl.searchParams.get("identityDocument") || "").trim().toUpperCase();
     const referenceLastSix = (request.nextUrl.searchParams.get("referenceLastSix") || "").trim();
-    if (!identityDocument || !/^\\d{6}$/.test(referenceLastSix)) {
+    if (!identityDocument || !/^\d{6}$/.test(referenceLastSix)) {
       return NextResponse.json({ error: "Se requiere Cédula/RIF y los últimos 6 dígitos de referencia para consultar el certificado." }, { status: 400, headers: noStore });
     }
 

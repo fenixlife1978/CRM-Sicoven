@@ -52,7 +52,8 @@ export async function POST(request: NextRequest) {
     const email = text(d.email, 254).toLowerCase();
     const phone = text(d.phone, 40);
     const amount = Number(d.amount);
-    const referenceLastSix = text(d.referenceLastSix, 6);
+    const referenceFull = text(d.referenceFull ?? d.referenceLastSix, 30).replace(/\s+/g, "");
+    const referenceLastSix = referenceFull.slice(-6);
     const paymentDate = text(d.paymentDate, 10);
     const sourceBank = text(d.sourceBank, 80);
     const destinationBankId = text(d.destinationBankId, 80);
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
       !sourceBank || !destinationBankId || (customerType === "person" && (!firstName || !lastName)) ||
       (customerType === "company" && !legalName) ||
       (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
-      return NextResponse.json({ error: "Completa los datos obligatorios y verifica el monto, la fecha, el correo y los últimos seis dígitos de la referencia." }, { status: 400, headers: noStore });
+      return NextResponse.json({ error: "Completa los datos obligatorios y verifica el monto, la fecha, el correo y la referencia bancaria completa (solo números)." }, { status: 400, headers: noStore });
     }
     const db = getDb();
     const [plan, bank] = await Promise.all([
@@ -74,12 +75,15 @@ export async function POST(request: NextRequest) {
     ]);
     if (!plan.rows[0] || !bank.rows[0]) return NextResponse.json({ error: "El plan o la cuenta de destino ya no están disponibles." }, { status: 400, headers: noStore });
     if (Math.abs(Number(plan.rows[0].price_amount) - amount) > 0.005) return NextResponse.json({ error: "El monto reportado no coincide con el precio vigente del plan." }, { status: 400, headers: noStore });
-    // Prevent accidental duplicate submissions for the same reported transfer.
+    // Prevent re-use of the same complete bank reference, regardless of customer, date or amount.
+    // Legacy records only stored the last six digits, so conservatively block matching suffixes
+    // while an old report is pending/approved; new reports compare the full reference exactly.
     const duplicate = await db.execute({
       sql: `SELECT id FROM payment_reports
-        WHERE destination_bank_id=? AND source_bank=? AND payment_date=? AND reference_last_six=?
-        AND amount=? AND status IN ('pending_review','approved') LIMIT 1`,
-      args: [destinationBankId,sourceBank,paymentDate,referenceLastSix,amount]
+        WHERE destination_bank_id=? AND status IN ('pending_review','approved')
+          AND (reference_full=? OR (reference_full IS NULL AND reference_last_six=?))
+        LIMIT 1`,
+      args: [destinationBankId,referenceFull,referenceLastSix]
     });
     if (duplicate.rows.length) {
       return NextResponse.json({ error: "Ya existe un reporte con esa referencia, fecha, monto y cuenta receptora. Revisa el estado antes de enviarlo otra vez." }, { status: 409, headers: noStore });
@@ -87,10 +91,10 @@ export async function POST(request: NextRequest) {
     const id = randomUUID();
     await db.execute({
       sql: `INSERT INTO payment_reports (id,product_id,plan_id,customer_type,first_name,last_name,legal_name,
-        identity_document,tax_id,email,phone,amount,reference_last_six,payment_date,source_bank,destination_bank_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        identity_document,tax_id,email,phone,amount,reference_last_six,reference_full,payment_date,source_bank,destination_bank_id)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       args: [id,productId,planId,customerType,firstName || null,lastName || null,legalName || null,
-        identityDocument,taxId || null,email || null,phone,amount,referenceLastSix,paymentDate,sourceBank,destinationBankId]
+        identityDocument,taxId || null,email || null,phone,amount,referenceLastSix,referenceFull,paymentDate,sourceBank,destinationBankId]
     });
     await notifyAdminsPush({
       title: "CRM-SICOVEN · Nuevo reporte de pago",

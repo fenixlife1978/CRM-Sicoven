@@ -867,6 +867,11 @@ export default function BuySoftwarePage() {
               </div>
             </div>
 
+            <div role="alert" className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+              <p className="font-extrabold">Importante: no cierres esta página todavía.</p>
+              <p className="mt-1 leading-relaxed">Mantén esta página abierta hasta que tu pago sea revisado y se emita tu certificado/licencia. Si se cierra accidentalmente, puedes volver a esta página y usar «Consultar Certificado» con tu documento de identidad/RIF y la referencia bancaria completa para revisar o recuperar una licencia aprobada.</p>
+            </div>
+
             {loading ? (
               <div className="py-16 text-center space-y-3">
                 <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto" />

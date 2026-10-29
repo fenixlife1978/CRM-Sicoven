@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const referenceLastSix = typeof body.referenceLastSix === "string" ? body.referenceLastSix.trim() : "";
 
     // Do not expose payment details or certificates by report ID alone.
-    if (!identityDocument || !/^\\d{6}$/.test(referenceLastSix)) {
+    if (!identityDocument || !/^\d{6}$/.test(referenceLastSix)) {
       return NextResponse.json({ error: "Ingresa la Cédula/RIF y los últimos 6 dígitos de referencia." }, { status: 400, headers: noStore });
     }
 

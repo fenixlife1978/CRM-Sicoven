@@ -1,47 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
-  <!-- Official SICOVEN Emblem: Bold Modern "S" with two horizontal yellow stripes underneath -->
-  <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0c243e" />
-      <stop offset="100%" stop-color="#08182b" />
-    </linearGradient>
-    <linearGradient id="sCyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8" />
-      <stop offset="50%" stop-color="#0284c7" />
-      <stop offset="100%" stop-color="#0369a1" />
-    </linearGradient>
-    <linearGradient id="stripeTop" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#f59e0b" />
-      <stop offset="100%" stop-color="#fcd34d" />
-    </linearGradient>
-    <linearGradient id="stripeBottom" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#d97706" />
-      <stop offset="100%" stop-color="#f59e0b" />
-    </linearGradient>
-    <filter id="glow" x="-10%" y="-10%" width="120%" height="120%" filterUnits="userSpaceOnUse">
-      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.3" />
-    </filter>
-  </defs>
-
-  <!-- Background rounded card -->
-  <rect width="120" height="120" rx="26" fill="url(#bgGrad)" />
-  <rect x="0.75" y="0.75" width="118.5" height="118.5" rx="25.25" stroke="#38bdf8" stroke-opacity="0.2" stroke-width="1.5" />
-
-  <!-- SICOVEN Stylized 'S' -->
-  <g filter="url(#glow)">
-    <path
-      d="M74 20 C85 20 90 25 89 31 C88 36 83 38 75 38 C64 38 52 38 45 42 C38 46 39 52 46 56 L69 63 C85 68 87 81 78 87 C69 92 51 92 41 87 C33 83 30 78 31 72 C32 67 38 65 44 67 C53 73 66 74 72 70 C76 67 74 62 67 59 L44 52 C30 47 28 35 38 27 C47 20 62 20 74 20 Z"
-      fill="#ffffff"
-    />
-    <path
-      d="M70 24 C79 24 83 27 82 31 C81 34 78 35 72 35 C63 35 53 36 48 39 C43 42 43 46 48 49 L71 56 C83 60 84 71 77 76 C70 80 55 80 47 76 C41 73 38 69 39 65 C40 62 44 61 48 62 C55 67 65 67 70 64 C73 62 71 58 65 56 L42 49 C32 45 31 35 39 29 C46 24 59 24 70 24 Z"
-      fill="url(#sCyanGrad)"
-    />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Sicoven · Emblema Oficial</title>
+  <rect width="512" height="512" rx="112" fill="#14213D"/>
+  <g transform="translate(0,-20)">
+    <path d="M346 178 C330 140 290 124 256 124 C205 124 172 150 172 188 C172 226 205 242 256 256 C307 270 340 286 340 326 C340 364 305 390 256 390 C218 390 184 374 166 338"
+          fill="none" stroke="#FFFFFF" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="150" y1="428" x2="362" y2="428" stroke="#FFC72C" stroke-width="11" stroke-linecap="round"/>
+    <line x1="150" y1="448" x2="362" y2="448" stroke="#FFC72C" stroke-width="11" stroke-linecap="round"/>
   </g>
-
-  <!-- Two Yellow Stripes beneath the 'S' -->
-  <!-- Top stripe -->
-  <rect x="34" y="94" width="52" height="6" rx="3" fill="url(#stripeTop)" filter="url(#glow)" />
-  <!-- Bottom stripe -->
-  <rect x="44" y="103" width="32" height="5" rx="2.5" fill="url(#stripeBottom)" filter="url(#glow)" />
 </svg>

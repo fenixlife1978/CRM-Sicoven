@@ -200,7 +200,7 @@ export async function ensureSchema() {
     const prodId = "prod-sicoven";
     await db.execute({
       sql: "INSERT INTO products (id,name,product_code,edition,version,description,status) VALUES (?,?,?,?,?,?,'active')",
-      args: [prodId, "SICOVEN", "SICOVEN_DESKTOP", "Sistema Contable y de Gestión", "2.0", "Sistema contable y administrativo integral para empresas"]
+      args: [prodId, "Sicoven", "SICOVEN_DESKTOP", "Sistema contable", "2.0", "Sistema contable y administrativo integral para empresas"]
     });
     await db.execute({
       sql: "INSERT INTO commercial_plans (id,product_id,name,description,price_amount,currency,duration_days,max_activations,active) VALUES (?,?,?,?,?,?,30,?,1)",
@@ -214,6 +214,8 @@ export async function ensureSchema() {
       sql: "INSERT INTO commercial_plans (id,product_id,name,description,price_amount,currency,duration_days,max_activations,active) VALUES (?,?,?,?,?,?,30,?,1)",
       args: ["plan-empresarial", prodId, "Empresarial", "La solución completa para grandes operaciones.", 79, "USD", 5]
     });
+  } else {
+    await db.execute("UPDATE products SET name = 'Sicoven', edition = 'Sistema contable' WHERE id = 'prod-sicoven'");
   }
 
   const bankCount = await db.execute("SELECT COUNT(*) AS count FROM payment_bank_accounts");

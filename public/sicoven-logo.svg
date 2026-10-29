@@ -1,43 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 110" fill="none">
-  <!-- Official SICOVEN Horizontal Logo -->
-  <defs>
-    <linearGradient id="bgBox" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0c243e" />
-      <stop offset="100%" stop-color="#08182b" />
-    </linearGradient>
-    <linearGradient id="sGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8" />
-      <stop offset="100%" stop-color="#0284c7" />
-    </linearGradient>
-    <linearGradient id="stripeTopLogo" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#f59e0b" />
-      <stop offset="100%" stop-color="#fcd34d" />
-    </linearGradient>
-    <linearGradient id="stripeBottomLogo" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#d97706" />
-      <stop offset="100%" stop-color="#f59e0b" />
-    </linearGradient>
-  </defs>
-
-  <!-- Left Icon Emblem Box -->
-  <g transform="translate(6, 5)">
-    <rect width="100" height="100" rx="22" fill="url(#bgBox)" />
-    <!-- White base S -->
-    <path
-      d="M62 17 C71 17 76 21 75 26 C74 30 70 32 63 32 C54 32 44 32 38 35 C32 38 33 43 39 47 L58 53 C71 57 73 68 65 73 C57 77 42 77 34 73 C27 70 25 66 26 61 C27 57 32 55 37 57 C44 62 55 63 60 59 C63 56 61 52 56 50 L37 44 C25 40 23 30 31 23 C39 17 52 17 62 17 Z"
-      fill="#ffffff"
-    />
-    <!-- Cyan gradient fill S -->
-    <path
-      d="M59 20 C66 20 70 23 69 26 C68 29 65 30 60 30 C53 30 45 30 41 33 C37 35 37 38 41 41 L60 47 C70 51 71 59 65 63 C59 67 46 67 39 64 C34 61 32 58 33 55 C34 52 37 51 40 52 C46 56 55 56 59 54 C61 52 60 49 55 47 L35 41 C27 38 26 29 33 24 C39 20 50 20 59 20 Z"
-      fill="url(#sGrad)"
-    />
-    <!-- 2 Yellow Stripes -->
-    <rect x="28" y="79" width="44" height="5" rx="2.5" fill="url(#stripeTopLogo)" />
-    <rect x="37" y="87" width="26" height="4.5" rx="2.25" fill="url(#stripeBottomLogo)" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 300" width="1100" height="300">
+  <title>Sicoven · Sistema contable</title>
+  <g transform="translate(30,30) scale(0.4688)">
+    <rect width="512" height="512" rx="112" fill="#14213D"/>
+    <g transform="translate(0,-20)">
+      <path d="M346 178 C330 140 290 124 256 124 C205 124 172 150 172 188 C172 226 205 242 256 256 C307 270 340 286 340 326 C340 364 305 390 256 390 C218 390 184 374 166 338"
+            fill="none" stroke="#FFFFFF" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="150" y1="428" x2="362" y2="428" stroke="#FFC72C" stroke-width="11" stroke-linecap="round"/>
+      <line x1="150" y1="448" x2="362" y2="448" stroke="#FFC72C" stroke-width="11" stroke-linecap="round"/>
+    </g>
   </g>
-
-  <!-- Typography Right -->
-  <text x="124" y="60" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="46" letter-spacing="-0.5" fill="#0c243e">SICOVEN</text>
-  <text x="126" y="84" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="15" letter-spacing="0.4" fill="#526b84">Sistema Contable y de Gestión</text>
+  <text x="300" y="175" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="128" font-weight="700" letter-spacing="-3" fill="#14213D">Sicoven</text>
+  <line x1="304" y1="208" x2="760" y2="208" stroke="#FFC72C" stroke-width="6" stroke-linecap="round"/>
+  <line x1="304" y1="220" x2="760" y2="220" stroke="#FFC72C" stroke-width="6" stroke-linecap="round"/>
+  <text x="304" y="262" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="32" font-weight="500" letter-spacing="1" fill="#5A6577">Sistema contable</text>
 </svg>

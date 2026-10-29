@@ -178,7 +178,7 @@ export default function BuySoftwarePage() {
         const d = await r.json();
         if (r.ok) {
           const prods = d.products && d.products.length > 0 ? d.products : [
-            { id: "prod-sicoven", name: "Sistema POS Profesional", edition: "SICOVEN ERP", version: "2.0", description: "Controla tus ventas, inventario y caja desde un solo lugar. Ideal para tiendas, bodegas y comercios." }
+            { id: "prod-sicoven", name: "Sicoven", edition: "Sistema contable", version: "2.0", description: "Sistema contable y administrativo integral para empresas. Controla ventas, compras, inventario, cuentas y conciliación bancaria." }
           ];
           setProducts(prods);
 
@@ -225,7 +225,7 @@ export default function BuySoftwarePage() {
         }
       })
       .catch(() => {
-        setProducts([{ id: "prod-sicoven", name: "Sistema POS Profesional", edition: "SICOVEN", version: "2.0", description: "Controla tus ventas, inventario y caja desde un solo lugar. Ideal para tiendas, bodegas y comercios." }]);
+        setProducts([{ id: "prod-sicoven", name: "Sicoven", edition: "Sistema contable", version: "2.0", description: "Sistema contable y administrativo integral para empresas. Controla ventas, compras, inventario, cuentas y conciliación bancaria." }]);
         setPlans(DEFAULT_PLANS);
         setPlanId("plan-basico");
         setAmount("49.00");
@@ -589,32 +589,21 @@ export default function BuySoftwarePage() {
           {/* LEFT COLUMN: Product Banner, Plans Stack & Download Card  */}
           {/* ========================================================= */}
           <div className="lg:col-span-5 space-y-4">
-            {/* 1. Product Header Card with Official SICOVEN Emblem */}
+            {/* 1. Product Header Card with Original Sicoven Logo */}
             <div className="bg-white border border-[#d8e2eb] rounded-xl p-4 shadow-2xs">
-              <div className="flex items-start gap-3.5">
-                {/* Official SICOVEN Icon Emblem ("S" with two yellow stripes underneath) */}
-                <div className="w-14 h-14 rounded-xl bg-[#0c243e] p-1 flex items-center justify-center flex-shrink-0 shadow-sm border border-slate-200/50">
-                  <img
-                    src="/sicoven-emblem.svg"
-                    alt="Icono Oficial SICOVEN"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-black text-[#0c243e] tracking-tight">
-                      SICOVEN
-                    </h2>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-sky-700 bg-sky-50 border border-sky-200/80 px-2 py-0.5 rounded-md">
-                      Sistema Contable
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#4e657f] leading-snug">
-                    Sistema integral contable y de gestión. Controla ventas, inventario, facturación y caja desde un solo lugar.
-                  </p>
-                </div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <img
+                  src="/sicoven-logo.svg"
+                  alt="Sicoven · Sistema contable"
+                  className="h-12 sm:h-14 w-auto object-contain max-w-[280px]"
+                />
+                <span className="self-start sm:self-center text-[10.5px] font-bold uppercase tracking-wider text-[#14213D] bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md">
+                  Sistema Contable Oficial
+                </span>
               </div>
+              <p className="text-xs text-[#4e657f] leading-snug mt-2.5 pt-2.5 border-t border-slate-100">
+                Sistema contable y administrativo integral. Control de empresas, plan de cuentas, asientos, compras, ventas, inventario, conciliación bancaria y retenciones.
+              </p>
 
               {/* 3 Pills: Fácil de usar, Reportes en tiempo real, Soporte técnico */}
               <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100 text-[11px] text-[#2f4966] font-medium">
@@ -1120,16 +1109,14 @@ export default function BuySoftwarePage() {
                     <img
                       src="/efasfreelancer-logo.svg"
                       alt="EFASfreelancer Soluciones Digitales"
-                      className="h-10 sm:h-12 w-auto object-contain"
+                      className="h-9 sm:h-11 w-auto object-contain"
                     />
-                    <div className="border-l-2 border-slate-200 pl-3 text-left">
-                      <h2 className="text-lg font-black text-[#0c243e] tracking-tight uppercase">
-                        SICOVEN
-                      </h2>
-                      <p className="text-[9px] text-slate-500 font-bold tracking-wider uppercase">
-                        Sistema Contable y de Gestión · RIF V-13313521-5
-                      </p>
-                    </div>
+                    <div className="h-8 w-[1px] bg-slate-200 hidden sm:block" />
+                    <img
+                      src="/sicoven-logo.svg"
+                      alt="Sicoven · Sistema contable"
+                      className="h-8 sm:h-10 w-auto object-contain"
+                    />
                   </div>
 
                   <div className="text-center sm:text-right">

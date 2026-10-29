@@ -435,7 +435,8 @@ export default function BuySoftwarePage() {
         productName: products.find((p) => p.id === productId)?.name || "SICOVEN",
         planName: selectedPlan.name,
         amount: Number(amount),
-        referenceFull,
+        referenceLastSix: referenceFull.trim().slice(-6),
+        referenceFull: referenceFull.trim(),
         paymentDate
       };
       setActiveReport(newReport);

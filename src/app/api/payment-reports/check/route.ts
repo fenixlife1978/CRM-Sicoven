@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
         WHERE r.id = ? LIMIT 1`;
       queryArgs = [reportId];
     } else if (identityDocument && /^\\d{6,30}$/.test(referenceFull)) {
-      querySql = `SELECT r.id, r.status, r.review_note, r.reviewed_at, r.created_at, r.amount, r.reference_last_six,
+      querySql = `SELECT r.id, r.status, r.review_note, r.reviewed_at, r.created_at, r.amount, r.reference_last_six, r.reference_full,
         r.payment_date, r.customer_type, r.first_name, r.last_name, r.legal_name, r.identity_document,
         r.certificate_json, p.name AS product_name, cp.name AS plan_name
         FROM payment_reports r

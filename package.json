@@ -66,5 +66,10 @@
       "shortcutName": "CRM SICOVEN"
     },
     "artifactName": "CRM-SICOVEN-Setup-${version}-${arch}.${ext}"
+  },
+  "allowScripts": {
+    "electron@38.8.6": true,
+    "electron-winstaller@5.4.0": true,
+    "unrs-resolver@1.12.2": true
   }
 }

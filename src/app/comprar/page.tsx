@@ -154,6 +154,8 @@ export default function BuySoftwarePage() {
   const [whatsappAdminPhone, setWhatsappAdminPhone] = useState("04125773996");
 
   const [productId, setProductId] = useState("");
+  const [productLocked, setProductLocked] = useState(false);
+  const [routeProductError, setRouteProductError] = useState("");
   const [planId, setPlanId] = useState("");
   const [customerType, setCustomerType] = useState<"person" | "company">("person");
   const [firstName, setFirstName] = useState("");
@@ -202,6 +204,12 @@ export default function BuySoftwarePage() {
             { id: "prod-sicoven", name: "SICOVEN", edition: "Sistema Contable y de Gestión", version: "2.0" }
           ];
           setProducts(prods);
+          const params = new URLSearchParams(window.location.search);
+          const requestedProduct = (params.get("producto") || params.get("product") || "").trim();
+          const normalizeProduct = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+          const routeProduct = requestedProduct ? prods.find((p: Product) => p.id.toLowerCase() === requestedProduct.toLowerCase() || (p.product_code || "").toLowerCase() === requestedProduct.toLowerCase() || normalizeProduct(p.name) === normalizeProduct(requestedProduct) || normalizeProduct(p.product_code || "") === normalizeProduct(requestedProduct)) : undefined;
+          setProductLocked(Boolean(requestedProduct));
+          setRouteProductError(requestedProduct && !routeProduct ? "El enlace no identifica un producto válido. Regresa al software desde el que abriste esta página o contacta con soporte." : "");
 
           let fetchedPlans: Plan[] = (d.plans && d.plans.length > 0) ? d.plans : DEFAULT_PLANS;
           fetchedPlans = fetchedPlans.map((p: Plan, index: number) => {
@@ -237,14 +245,12 @@ export default function BuySoftwarePage() {
           setBanks(initialBanks);
           setWhatsappAdminPhone(d.whatsappAdminPhone || "04125773996");
 
-          if (prods[0]) setProductId(prods[0].id);
-          if (fetchedPlans[1]) {
-            setPlanId(fetchedPlans[1].id);
-            setAmount(String(fetchedPlans[1].price_amount));
-          } else if (fetchedPlans[0]) {
-            setPlanId(fetchedPlans[0].id);
-            setAmount(String(fetchedPlans[0].price_amount));
-          }
+          const initialProduct = routeProduct || prods[0];
+          if (initialProduct) setProductId(initialProduct.id);
+          const initialProductPlans = fetchedPlans.filter((p: Plan) => p.product_id === initialProduct?.id);
+          const initialPlan = initialProductPlans[0];
+          if (initialPlan) { setPlanId(initialPlan.id); setAmount(String(initialPlan.price_amount)); }
+          else { setPlanId(""); setAmount(""); }
           if (initialBanks[0]) setDestinationBankId(initialBanks[0].id);
         }
       })
@@ -290,7 +296,7 @@ export default function BuySoftwarePage() {
     }
   }, []);
 
-  const productPlans = plans.filter((p) => p.product_id === productId || plans.length <= 3);
+  const productPlans = plans.filter((p) => p.product_id === productId);
   const selectedPlan = productPlans.find((p) => p.id === planId) || productPlans[0] || DEFAULT_PLANS[1];
   const selectedBank = banks.find((b) => b.id === destinationBankId) || banks[0];
 
@@ -390,8 +396,9 @@ export default function BuySoftwarePage() {
     setError("");
     setSuccess("");
 
-    if (!selectedPlan) {
-      setError("Por favor selecciona un plan antes de continuar.");
+    if (routeProductError) { setError(routeProductError); return; }
+    if (!productId || !selectedPlan || selectedPlan.product_id !== productId) {
+      setError("Selecciona un plan válido para el producto de esta compra.");
       return;
     }
 
@@ -513,6 +520,7 @@ export default function BuySoftwarePage() {
 
       {/* Main Container */}
       <main className="max-w-[1360px] mx-auto p-4 sm:p-6 lg:p-8">
+        {routeProductError && <div role="alert" className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{routeProductError}</div>}
         {/* Unlocked License & Certificate Banner (If user has reported a payment) */}
         {activeReport && (
           <section className="mb-8 rounded-2xl overflow-hidden border shadow-lg transition-all">
@@ -1028,22 +1036,14 @@ export default function BuySoftwarePage() {
                     2. Producto y plan seleccionado
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-[#3a526d] mb-1">
-                        Producto *
-                      </label>
-                      <select
-                        value={productId}
-                        onChange={(e) => setProductId(e.target.value)}
-                        className="w-full px-3 py-2.5 rounded-lg border border-[#d6dfe7] text-sm bg-white text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      >
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} {p.edition ? `· ${p.edition}` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {!productLocked && (
+                      <div>
+                        <label className="block text-xs font-semibold text-[#3a526d] mb-1">Producto *</label>
+                        <select value={productId} onChange={(e) => { const nextId = e.target.value; setProductId(nextId); const firstPlan = plans.find((p) => p.product_id === nextId); setPlanId(firstPlan?.id || ""); setAmount(firstPlan ? String(firstPlan.price_amount) : ""); }} className="w-full px-3 py-2.5 rounded-lg border border-[#d6dfe7] text-sm bg-white text-[#102a45] focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                          {products.map((p) => <option key={p.id} value={p.id}>{p.name} {p.edition ? "· " + p.edition : ""}</option>)}
+                        </select>
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-xs font-semibold text-[#3a526d] mb-1">

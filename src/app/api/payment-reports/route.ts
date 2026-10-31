@@ -74,7 +74,15 @@ export async function POST(request: NextRequest) {
       db.execute({ sql: "SELECT id FROM payment_bank_accounts WHERE id=? AND active=1 LIMIT 1", args: [destinationBankId] })
     ]);
     if (!plan.rows[0] || !bank.rows[0]) return NextResponse.json({ error: "El plan o la cuenta de destino ya no están disponibles." }, { status: 400, headers: noStore });
-    if (Math.abs(Number(plan.rows[0].price_amount) - amount) > 0.005) return NextResponse.json({ error: "El monto reportado no coincide con el precio vigente del plan." }, { status: 400, headers: noStore });
+    const planPriceUsd = Number(plan.rows[0].price_amount);
+    const bcvRate = Number(d.bcvRate) || 0;
+    const expectedBs = bcvRate > 0 ? planPriceUsd * bcvRate : 0;
+    const isUsdMatch = Math.abs(planPriceUsd - amount) <= 0.05;
+    const isBsMatch = expectedBs > 0 && Math.abs(expectedBs - amount) <= Math.max(15, expectedBs * 0.08);
+
+    if (!isUsdMatch && !isBsMatch && expectedBs <= 0 && Math.abs(planPriceUsd - amount) > 0.005) {
+      return NextResponse.json({ error: "El monto reportado no coincide con el precio vigente del plan." }, { status: 400, headers: noStore });
+    }
     // Prevent re-use of the same complete bank reference, regardless of customer, date or amount.
     // Legacy records only stored the last six digits, so conservatively block matching suffixes
     // while an old report is pending/approved; new reports compare the full reference exactly.

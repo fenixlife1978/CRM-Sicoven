@@ -41,6 +41,35 @@ function formatBs(value: number | string): string {
   });
 }
 
+// Identifies if a plan represents a Lifetime / Vitalicio license
+function isLifetimePlan(plan?: Plan | null): boolean {
+  if (!plan) return false;
+  const name = (plan.name || "").toLowerCase();
+  const desc = (plan.description || "").toLowerCase();
+  const id = (plan.id || "").toLowerCase();
+  if (
+    name.includes("vitalici") ||
+    name.includes("único") ||
+    name.includes("unico") ||
+    name.includes("permanente") ||
+    name.includes("lifetime") ||
+    id.includes("vitalici") ||
+    id.includes("unico") ||
+    desc.includes("vitalici") ||
+    desc.includes("pago único") ||
+    desc.includes("pago unico") ||
+    desc.includes("permanente") ||
+    desc.includes("de por vida") ||
+    desc.includes("sin vencimiento")
+  ) {
+    return true;
+  }
+  if (plan.duration_days == null || plan.duration_days === 0 || plan.duration_days >= 3650) {
+    return true;
+  }
+  return false;
+}
+
 function WhatsAppIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor">
@@ -778,9 +807,21 @@ export default function BuySoftwarePage() {
                             <span className="text-xl font-black text-[#0c243e]">
                               $ {Number(plan.price_amount).toFixed(2)}
                             </span>
-                            <span className="text-[11px] text-[#637992] font-medium mr-1">
-                              / {plan.duration_days ? `${plan.duration_days} días` : "mes"}
-                            </span>
+                            {isLifetimePlan(plan) ? (
+                              <span className="text-[11px] text-[#637992] font-medium mr-1 inline-flex items-center gap-1">
+                                <span>/</span>
+                                <span className="line-through decoration-[#dc2626] decoration-[2px] font-bold text-slate-400">
+                                  mes
+                                </span>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                  Vitalicio
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-[#637992] font-medium mr-1">
+                                / {plan.duration_days ? `${plan.duration_days} días` : "mes"}
+                              </span>
+                            )}
                             {bcvRate > 0 && (
                               <span className="text-[11.5px] font-bold text-emerald-900 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200/90 inline-flex items-center gap-1.5 shadow-2xs">
                                 <div className="w-4 h-4 rounded-full bg-white border border-emerald-300/70 p-0.5 flex items-center justify-center flex-shrink-0">
@@ -820,7 +861,9 @@ export default function BuySoftwarePage() {
             <div className="bg-[#eff6ff] border border-[#cbe0fb] rounded-xl p-3 flex items-start gap-2.5 text-xs text-[#1d4674]">
               <span className="text-[#0066cc] font-bold text-sm">ⓘ</span>
               <p className="text-[11.5px] leading-snug">
-                El plan seleccionado incluye el acceso al software y actualizaciones durante el período contratado.
+                {isLifetimePlan(selectedPlan)
+                  ? "El plan seleccionado es una licencia de pago único con activación permanente y soporte técnico garantizado."
+                  : "El plan seleccionado incluye el acceso al software y actualizaciones durante el período contratado."}
               </p>
             </div>
           </div>
@@ -1002,9 +1045,10 @@ export default function BuySoftwarePage() {
                     >
                       {productPlans.map((p) => {
                         const bsPrice = formatBs(Number(p.price_amount) * (bcvRate || 1));
+                        const lifetimeTag = isLifetimePlan(p) ? " (Vitalicio)" : "";
                         return (
                           <option key={p.id} value={p.id}>
-                            {p.name} — Bs. {bsPrice} ($ {Number(p.price_amount).toFixed(2)} USD)
+                            {p.name}{lifetimeTag} — Bs. {bsPrice} ($ {Number(p.price_amount).toFixed(2)} USD)
                           </option>
                         );
                       })}

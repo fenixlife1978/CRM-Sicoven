@@ -15,6 +15,31 @@ import {
   CheckCircle2,
   Copy
 } from "lucide-react";
+import { BcvOfficialIcon } from "@/components/BcvOfficialIcon";
+
+// Parses any Venezuelan currency string (e.g. "222.356,83" or "222356,83") into a standard number rounded to 2 decimals
+function parseBsToNumber(value: string | number): number {
+  if (typeof value === "number") return isNaN(value) ? 0 : Math.round(value * 100) / 100;
+  if (!value) return 0;
+  const str = String(value).trim();
+  if (str.includes(",")) {
+    const cleaned = str.replace(/\./g, "").replace(",", ".");
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : Math.round(num * 100) / 100;
+  }
+  const num = parseFloat(str);
+  return isNaN(num) ? 0 : Math.round(num * 100) / 100;
+}
+
+// Formats a number to official Venezuelan currency format: e.g., 222.356,83 (period for thousands, comma for decimals, exactly two decimals)
+function formatBs(value: number | string): string {
+  const num = parseBsToNumber(value);
+  if (isNaN(num)) return "0,00";
+  return num.toLocaleString("es-VE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 function WhatsAppIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -314,7 +339,7 @@ export default function BuySoftwarePage() {
 
   useEffect(() => {
     if (selectedPlan && bcvRate > 0) {
-      setAmount((Number(selectedPlan.price_amount) * bcvRate).toFixed(2));
+      setAmount(formatBs(Number(selectedPlan.price_amount) * bcvRate));
     }
   }, [selectedPlan, bcvRate]);
 
@@ -322,7 +347,7 @@ export default function BuySoftwarePage() {
     setPlanId(id);
     const p = plans.find((pl) => pl.id === id);
     if (p && bcvRate > 0) {
-      setAmount((Number(p.price_amount) * bcvRate).toFixed(2));
+      setAmount(formatBs(Number(p.price_amount) * bcvRate));
     }
   };
 
@@ -397,7 +422,7 @@ export default function BuySoftwarePage() {
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
         address: address.trim(),
-        amount: Number(amount),
+        amount: parseBsToNumber(amount),
         currency: "VES",
         bcvRate: bcvRate,
         referenceFull: cleanReference,
@@ -426,7 +451,7 @@ export default function BuySoftwarePage() {
         email,
         productName: selectedProduct?.name || "Sicoven",
         planName: selectedPlan.name,
-        amount: Number(amount),
+        amount: parseBsToNumber(amount),
         referenceLastSix: cleanReference.slice(-6),
         referenceFull: cleanReference,
         paymentDate
@@ -458,7 +483,7 @@ export default function BuySoftwarePage() {
       identityDocument: identityDocument.trim().toUpperCase(),
       phone: phone.trim(),
       email: email.trim(),
-      amount: Number(amount) || (selectedPlan ? Number(selectedPlan.price_amount) * (bcvRate || 1) : 0),
+      amount: parseBsToNumber(amount) || (selectedPlan ? Math.round(Number(selectedPlan.price_amount) * (bcvRate || 1) * 100) / 100 : 0),
       productName: selectedProduct?.name || "Sicoven",
       planName: selectedPlan?.name || "Plan",
       referenceFull: cleanReference || referenceFull,
@@ -485,8 +510,8 @@ export default function BuySoftwarePage() {
       `• *Plan:* ${reportData.planName}`,
       "",
       "💰 *DATOS DEL PAGO MÓVIL*",
-      `• *Monto Pagado:* Bs. ${amountNum.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`,
-      `• *Tasa Oficial BCV:* ${bcvRate.toFixed(2)} Bs/$ ${bcvDate ? `(${bcvDate})` : ""}`,
+      `• *Monto Pagado:* Bs. ${formatBs(amountNum)}`,
+      `• *Tasa Oficial BCV:* ${bcvRate.toFixed(2).replace(".", ",")} Bs/$ ${bcvDate ? `(${bcvDate})` : ""}`,
       `• *Equivalente en Divisas:* $ ${usdEquivalent} USD`,
       `• *Banco Receptor:* ${targetBankName}`,
       `• *Referencia de Pago:* ${reportData.referenceFull || reportData.referenceLastSix || cleanReference || "N/A"}`,
@@ -646,7 +671,7 @@ export default function BuySoftwarePage() {
                       Verificación en curso: Tu Certificado se desbloqueará aquí
                     </h3>
                     <p className="text-blue-100/80 text-xs max-w-2xl">
-                      Reporte de pago registrado por <strong>Bs. {Number(activeReport.amount).toLocaleString("es-VE", { minimumFractionDigits: 2 })}</strong> para el plan <strong>{activeReport.planName}</strong>. En cuanto sea conciliado, se desbloqueará automáticamente la descarga de tu certificado de licencia.
+                      Reporte de pago registrado por <strong>Bs. {formatBs(activeReport.amount)}</strong> para el plan <strong>{activeReport.planName}</strong>. En cuanto sea conciliado, se desbloqueará automáticamente la descarga de tu certificado de licencia.
                     </p>
                   </div>
 
@@ -757,9 +782,13 @@ export default function BuySoftwarePage() {
                               / {plan.duration_days ? `${plan.duration_days} días` : "mes"}
                             </span>
                             {bcvRate > 0 && (
-                              <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/90 inline-flex items-center gap-1 shadow-2xs">
-                                <img src="/bcv-round-logo.svg" alt="BCV" className="w-3.5 h-3.5 object-contain flex-shrink-0" />
-                                <span>Bs. {(Number(plan.price_amount) * bcvRate).toLocaleString("es-VE", { minimumFractionDigits: 2 })}</span>
+                              <span className="text-[11.5px] font-bold text-emerald-900 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200/90 inline-flex items-center gap-1.5 shadow-2xs">
+                                <div className="w-4 h-4 rounded-full bg-white border border-emerald-300/70 p-0.5 flex items-center justify-center flex-shrink-0">
+                                  <BcvOfficialIcon className="w-full h-full text-[#002855]" />
+                                </div>
+                                <span className="font-mono font-black text-emerald-800">
+                                  Bs. {formatBs(Number(plan.price_amount) * bcvRate)}
+                                </span>
                               </span>
                             )}
                           </div>
@@ -916,17 +945,15 @@ export default function BuySoftwarePage() {
                         Monto a pagar (en Bs.) *
                       </label>
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200/90 shadow-2xs">
-                        <img
-                          src="/bcv-round-logo.svg"
-                          alt="BCV"
-                          className="w-4 h-4 rounded-full object-contain flex-shrink-0"
-                        />
+                        <div className="w-4 h-4 rounded-full bg-white border border-amber-300/70 p-0.5 flex items-center justify-center flex-shrink-0">
+                          <BcvOfficialIcon className="w-full h-full text-[#002855]" />
+                        </div>
                         <span className="font-extrabold text-[11px] text-[#0c243e]">Tasa BCV:</span>
                         {loadingBcv ? (
                           <span className="text-[10px] text-slate-400 animate-pulse font-medium">Consultando...</span>
                         ) : (
                           <span className="font-mono font-black text-[11.5px] text-emerald-700">
-                            {bcvRate.toFixed(2)} Bs/$
+                            {bcvRate.toFixed(2).replace(".", ",")} Bs/$
                           </span>
                         )}
                         {bcvDate && !loadingBcv && (
@@ -937,12 +964,14 @@ export default function BuySoftwarePage() {
                     <div className="relative">
                       <input
                         required
-                        type="number"
-                        step="0.01"
-                        min="0.01"
+                        type="text"
+                        inputMode="decimal"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
-                        placeholder="Ej. 222313.83"
+                        onBlur={() => {
+                          if (amount) setAmount(formatBs(amount));
+                        }}
+                        placeholder="Ej. 222.356,83"
                         className="w-full px-3 py-2 pr-12 rounded-lg border border-[#d4dfe8] text-xs font-mono font-bold text-[#0c243e] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-[#0c243e]">
@@ -972,7 +1001,7 @@ export default function BuySoftwarePage() {
                       className="w-full px-3 py-2 rounded-lg border border-[#d4dfe8] text-xs text-[#0c243e] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
                     >
                       {productPlans.map((p) => {
-                        const bsPrice = (Number(p.price_amount) * (bcvRate || 1)).toLocaleString("es-VE", { minimumFractionDigits: 2 });
+                        const bsPrice = formatBs(Number(p.price_amount) * (bcvRate || 1));
                         return (
                           <option key={p.id} value={p.id}>
                             {p.name} — Bs. {bsPrice} ($ {Number(p.price_amount).toFixed(2)} USD)

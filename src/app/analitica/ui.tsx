@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 type Row = Record<string, unknown>;
 type Data = { days:number; totals:Row; byProduct:Row[]; bySource:Row[]; daily:Row[]; products:Row[]; activationStats?:Row; activationDaily?:Row[]; githubDownloads?:number; githubReleaseTag?:string };
 const numeric = (v:unknown): number => { const value = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : 0; return Number.isFinite(value) ? value : 0; };
-const n = (v:unknown) => typeof v === "string" && v.endsWith("%") ? v : numeric(v).toLocaleString("es-VE");
+const n = (v:unknown) => typeof v === "string" && (v.endsWith("%") || (v.trim() !== "" && !Number.isFinite(Number(v)))) ? v : numeric(v).toLocaleString("es-VE");
 const s = (v:unknown) => v == null || v === "" ? "—" : String(v);
 
 export default function AnalyticsDashboard() {

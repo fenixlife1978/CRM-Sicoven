@@ -30,7 +30,10 @@ export async function ensureProductAnalyticsSchema() {
 }
 
 export function hashRequestIp(ip: string) {
-  const secret = process.env.SESSION_SECRET || "analytics-ip-hash-fallback";
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error("SESSION_SECRET debe tener al menos 32 caracteres para proteger la analítica.");
+  }
   return createHash("sha256").update(secret).update(":").update(ip).digest("hex");
 }
 

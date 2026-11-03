@@ -18,7 +18,7 @@ export default function AnalyticsDashboard() {
     return ()=>{alive=false};
   },[days]);
   const t=data?.totals||{};
-  const cards=[["Visitas",t.page_views],["Visitantes estimados",t.sessions],["Clics en descargar",t.download_clicks],["Clics WhatsApp",t.whatsapp_clicks],["Contactos enviados",t.lead_submits]];
+  const cards: Array<[string, unknown]> = [["Visitas",t.page_views],["Visitantes estimados",t.sessions],["Clics en descargar",t.download_clicks],["Clics WhatsApp",t.whatsapp_clicks],["Contactos enviados",t.lead_submits]];
   return <section>
     <div className="toolbar"><div><strong>Resumen de actividad</strong><small>Los clics no equivalen a descargas o instalaciones completadas.</small></div><select value={days} onChange={e=>setDays(Number(e.target.value))}><option value={7}>Últimos 7 días</option><option value={30}>Últimos 30 días</option><option value={90}>Últimos 90 días</option></select></div>
     {error&&<p className="error">{error}</p>}

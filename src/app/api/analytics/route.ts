@@ -26,12 +26,12 @@ export async function GET(request: NextRequest) {
       db.execute({ sql: "SELECT COUNT(*) new_activations,COUNT(DISTINCT a.installation_id) installations, SUM(CASE WHEN a.status='active' THEN 1 ELSE 0 END) active_installations FROM activations a JOIN licenses l ON l.id=a.license_id JOIN products p ON p.id=l.product_id WHERE p.product_code='SICOVEN_DESKTOP' AND a.activated_at>=?", args: [since] }),
       db.execute({ sql: "SELECT substr(a.activated_at,1,10) day,COUNT(*) activations FROM activations a JOIN licenses l ON l.id=a.license_id JOIN products p ON p.id=l.product_id WHERE p.product_code='SICOVEN_DESKTOP' AND a.activated_at>=? GROUP BY substr(a.activated_at,1,10) ORDER BY day", args: [since] })
     ]);
-    let githubDownloads = 0;
+    let githubDownloads: number | null = null;
     let githubReleaseTag = "v1.0.9";
     try {
       const releaseResponse = await fetch("https://api.github.com/repos/fenixlife1978/Sicoven/releases/tags/v1.0.9", {
         headers: { "Accept": "application/vnd.github+json", "User-Agent": "SICOVEN-Analytics" },
-        cache: "no-store",
+        next: { revalidate: 3600 },
         signal: AbortSignal.timeout(4000)
       });
       if (releaseResponse.ok) {

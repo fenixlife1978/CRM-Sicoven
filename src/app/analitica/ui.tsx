@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 
 type Row = Record<string, unknown>;
 type Data = { days:number; totals:Row; byProduct:Row[]; bySource:Row[]; daily:Row[]; products:Row[] };
-const n = (v:unknown) => Number(v || 0).toLocaleString("es-VE");
+const numeric = (v:unknown): number => { const value = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : 0; return Number.isFinite(value) ? value : 0; };
+const n = (v:unknown) => typeof v === "string" && v.endsWith("%") ? v : numeric(v).toLocaleString("es-VE");
 const s = (v:unknown) => v == null || v === "" ? "—" : String(v);
 
 export default function AnalyticsDashboard() {
@@ -18,8 +19,8 @@ export default function AnalyticsDashboard() {
     return ()=>{alive=false};
   },[days]);
   const t=data?.totals||{};
-  const pageViews = Number(t.page_views || 0);
-  const downloadClicks = Number(t.download_clicks || 0);
+  const pageViews = numeric(t.page_views);
+  const downloadClicks = numeric(t.download_clicks);
   const downloadCtr = pageViews > 0 ? ((downloadClicks / pageViews) * 100).toFixed(1).replace(".", ",") + "%" : "0,0%";
   const cards: Array<[string, unknown]> = [["Visitas",t.page_views],["Visitantes estimados",t.sessions],["Clics en descargar",t.download_clicks],["CTR de descarga",downloadCtr],["Clics WhatsApp",t.whatsapp_clicks],["Contactos enviados",t.lead_submits]];
   return <section>

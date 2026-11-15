@@ -313,7 +313,9 @@ export default function BuySoftwarePage() {
           const requestedProduct = requestedProductCode
             ? prods.find((product: Product) => String(product.product_code || "").toUpperCase() === requestedProductCode)
             : undefined;
-          const initialProduct = requestedProduct || prods.find((product: Product) => product.product_code === "SICOVEN_DESKTOP") || prods[0];
+          const initialProduct = requestedProductCode
+            ? requestedProduct
+            : prods.find((product: Product) => product.product_code === "SICOVEN_DESKTOP") || prods[0];
           if (initialProduct) setProductId(initialProduct.id);
           const initialProductPlans = initialProduct
             ? fetchedPlans.filter((plan) => plan.product_id === initialProduct.id)

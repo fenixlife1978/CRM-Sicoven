@@ -56,7 +56,7 @@ export default function AdministradoresPage() {
   }
 
   return <main className="page">
-    <header><div><Link href="/">← Volver al centro de control</Link><p className="eyebrow">SEGURIDAD Y ACCESO</p><h1>Administradores</h1><p className="intro">Crea una segunda cuenta administrativa y comprueba su acceso antes de retirar la cuenta inicial.</p></div></header>
+    <header><div><Link href="/panel">← Volver al centro de control</Link><p className="eyebrow">SEGURIDAD Y ACCESO</p><h1>Administradores</h1><p className="intro">Crea una segunda cuenta administrativa y comprueba su acceso antes de retirar la cuenta inicial.</p></div></header>
     {error && <p className="alert error" role="alert">{error}</p>}
     {message && <p className="alert success" role="status">{message}</p>}
     <section className="panel">

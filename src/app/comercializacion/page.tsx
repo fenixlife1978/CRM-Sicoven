@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function CommercializationPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "admin") redirect("/");
+  if (session.role !== "admin") redirect("/panel");
   await bootstrapDatabase().catch(() => undefined);
   return <CommercialPayments />;
 }

@@ -124,6 +124,30 @@ export async function ensureSchema() {
       ORDER BY created_at, id LIMIT 1)
       AND NOT EXISTS (SELECT 1 FROM products WHERE product_code = 'SICOVEN_DESKTOP')`);
   await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS products_product_code_unique ON products(product_code) WHERE product_code IS NOT NULL AND TRIM(product_code) <> ''");
+
+  // Ensure NotariaVE has its own stable product code for desktop activation.
+  // Reuse an existing NotariaVE row when present; never create duplicate product codes.
+  const notariaCode = await db.execute("SELECT id FROM products WHERE product_code='NOTARIAVE_DESKTOP' LIMIT 1");
+  if (!notariaCode.rows.length) {
+    const notariaNamed = await db.execute("SELECT id FROM products WHERE LOWER(TRIM(name)) IN ('notariave','notaría ve','notaria ve') ORDER BY created_at,id LIMIT 1");
+    if (notariaNamed.rows.length) {
+      await db.execute({
+        sql: "UPDATE products SET product_code='NOTARIAVE_DESKTOP',name='NotariaVE',edition='Aplicación de escritorio para notarías',version='1.0',updated_at=CURRENT_TIMESTAMP WHERE id=?",
+        args: [String(notariaNamed.rows[0].id)]
+      });
+    } else {
+      await db.execute({
+        sql: "INSERT INTO products (id,name,product_code,edition,version,description,status) VALUES (?,?,?,?,?,?,'active')",
+        args: ["prod-notariave","NotariaVE","NOTARIAVE_DESKTOP","Aplicación de escritorio para notarías","1.0","Sistema local de gestión notarial para Windows"]
+      });
+    }
+  } else {
+    await db.execute({
+      sql: "UPDATE products SET name='NotariaVE',edition='Aplicación de escritorio para notarías',version='1.0',status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?",
+      args: [String(notariaCode.rows[0].id)]
+    });
+  }
+
   await db.execute("CREATE TRIGGER IF NOT EXISTS products_assign_product_code\nAFTER INSERT ON products\nWHEN NEW.product_code IS NULL OR TRIM(NEW.product_code) = ''\nBEGIN\n  UPDATE products SET product_code = CASE\n    WHEN LOWER(TRIM(NEW.name)) LIKE 'sicoven%'\n      AND NOT EXISTS (SELECT 1 FROM products WHERE product_code = 'SICOVEN_DESKTOP')\n    THEN 'SICOVEN_DESKTOP'\n    ELSE 'PRODUCT_' || UPPER(REPLACE(NEW.id, '-', '_'))\n  END\n  WHERE id = NEW.id;\nEND");
   const activationColumns = await db.execute("PRAGMA table_info(activations)");
   const existingActivationColumns = new Set(activationColumns.rows.map((column) => String(column.name)));

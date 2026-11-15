@@ -5,13 +5,15 @@
 :root {
   color-scheme: light;
   --navy: #10243a;
-  --navy-2: #173b5c;
+  --navy-2: #1d4ed8;
+  --blue: #1d4ed8;
+  --blue-dark: #1e40af;
   --gold: #f2bd35;
   --ink: #182536;
   --muted: #667487;
   --line: #e2e8f0;
   --surface: #ffffff;
-  --background: #f4f7fb;
+  --background: #f8fafc;
 }
 
 * {
@@ -32,7 +34,7 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--ink);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Inter, "Public Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   overflow-x: clip;
 }
 
@@ -58,3 +60,10 @@ textarea {
     font-size: 15px;
   }
 }
+
+
+/* Shared visual language inspired by Nuevo-EFAS: slate surfaces, crisp typography and blue actions. */
+h1,h2,h3,h4{letter-spacing:-.025em}
+a,button,input,select,textarea{ -webkit-tap-highlight-color: transparent; }
+:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+::selection{background:#dbeafe;color:#10243a}

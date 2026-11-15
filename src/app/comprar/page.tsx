@@ -183,6 +183,7 @@ const DEFAULT_PLANS: Plan[] = [
 ];
 
 export default function BuySoftwarePage() {
+  const requestedProductCode = new URLSearchParams(window.location.search).get("product")?.trim().toUpperCase();
   const [products, setProducts] = useState<Product[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -270,8 +271,8 @@ export default function BuySoftwarePage() {
       .then(async (r) => {
         const d = await r.json();
         if (r.ok) {
-          const prods = d.products && d.products.length > 0 ? d.products : [
-            { id: "prod-sicoven", name: "Sicoven", edition: "Sistema contable", version: "2.0", description: "Sistema contable y administrativo integral para empresas. Controla ventas, compras, inventario, cuentas y conciliación bancaria." }
+          const prods = d.products && d.products.length > 0 ? d.products : requestedProductCode ? [] : [
+            { id: "prod-sicoven", name: "Sicoven", product_code: "SICOVEN_DESKTOP", edition: "Sistema contable", version: "2.0", description: "Sistema contable y administrativo integral para empresas. Controla ventas, compras, inventario, cuentas y conciliación bancaria." }
           ];
           setProducts(prods);
 
@@ -309,7 +310,6 @@ export default function BuySoftwarePage() {
           setBanks(initialBanks);
           setWhatsappAdminPhone(d.whatsappAdminPhone || "04125773996");
 
-          const requestedProductCode = new URLSearchParams(window.location.search).get("product")?.trim().toUpperCase();
           const requestedProduct = requestedProductCode
             ? prods.find((product: Product) => String(product.product_code || "").toUpperCase() === requestedProductCode)
             : undefined;
@@ -331,10 +331,18 @@ export default function BuySoftwarePage() {
         }
       })
       .catch(() => {
-        setProducts([{ id: "prod-sicoven", name: "Sicoven", edition: "Sistema contable", version: "2.0", description: "Sistema contable y administrativo integral para empresas. Controla ventas, compras, inventario, cuentas y conciliación bancaria." }]);
-        setPlans(DEFAULT_PLANS);
-        setPlanId("plan-basico");
-        setAmount("49.00");
+        if (requestedProductCode) {
+          setProducts([]);
+          setPlans([]);
+          setProductId("");
+          setPlanId("");
+          setAmount("");
+        } else {
+          setProducts([{ id: "prod-sicoven", name: "Sicoven", product_code: "SICOVEN_DESKTOP", edition: "Sistema contable", version: "2.0", description: "Sistema contable y administrativo integral para empresas. Controla ventas, compras, inventario, cuentas y conciliación bancaria." }]);
+          setPlans(DEFAULT_PLANS);
+          setPlanId("plan-basico");
+          setAmount("49.00");
+        }
         setBanks([
           {
             id: "bank-bdv",
@@ -374,7 +382,7 @@ export default function BuySoftwarePage() {
     }
   }, []);
 
-  const selectedProduct = products.find((p) => p.id === productId) || products[0];
+  const selectedProduct = products.find((p) => p.id === productId) || (requestedProductCode ? undefined : products[0]);
   const productPlans = plans.filter((p) => p.product_id === productId);
   const selectedPlan = productPlans.find((p) => p.id === planId) || productPlans[0] || null;
   const selectedBank = banks.find((b) => b.id === destinationBankId) || banks[0];

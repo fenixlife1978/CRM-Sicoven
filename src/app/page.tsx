@@ -1,80 +1,146 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getSession, clearSession } from "@/lib/auth";
 import { bootstrapDatabase } from "@/lib/bootstrap";
 import { getDb } from "@/lib/db";
 
-async function signOut() {
-  "use server";
-  await clearSession();
-  redirect("/login");
-}
+type PublicProduct = {
+  id: string;
+  name: string;
+  product_code: string | null;
+  edition: string | null;
+  version: string | null;
+  description: string | null;
+};
 
-export default async function HomePage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
+export const dynamic = "force-dynamic";
 
-  let metrics = { customers: "—", products: "—", licenses: "—", activations: "—" };
-  let databaseReady = false;
+export default async function PublicCatalogPage() {
+  let products: PublicProduct[] = [];
+  let unavailable = false;
+
   try {
     await bootstrapDatabase();
-    const db = getDb();
-    const [customers, products, licenses, activations] = await Promise.all([
-      db.execute("SELECT COUNT(*) AS total FROM customers"),
-      db.execute("SELECT COUNT(*) AS total FROM products"),
-      db.execute("SELECT COUNT(*) AS total FROM licenses"),
-      db.execute("SELECT COUNT(*) AS total FROM activations WHERE status='active'")
-    ]);
-    metrics = {
-      customers: String(customers.rows[0]?.total ?? 0),
-      products: String(products.rows[0]?.total ?? 0),
-      licenses: String(licenses.rows[0]?.total ?? 0),
-      activations: String(activations.rows[0]?.total ?? 0)
-    };
-    databaseReady = true;
+    const result = await getDb().execute({
+      sql: "SELECT id,name,product_code,edition,version,description FROM products WHERE status='active' ORDER BY name LIMIT 100"
+    });
+    products = result.rows.map((row) => ({
+      id: String(row.id),
+      name: String(row.name),
+      product_code: row.product_code == null ? null : String(row.product_code),
+      edition: row.edition == null ? null : String(row.edition),
+      version: row.version == null ? null : String(row.version),
+      description: row.description == null ? null : String(row.description)
+    }));
   } catch {
-    // Do not expose database credentials or driver details in the interface.
+    unavailable = true;
   }
 
-  const cards = [
-    { title: "Clientes", value: metrics.customers, description: "Personas naturales y empresas", href: "/clientes", number: "01" },
-    { title: "Productos", value: metrics.products, description: "Catálogo de sistemas y ediciones", href: "/productos", number: "02" },
-    { title: "Licencias", value: metrics.licenses, description: "Vigencia y estado de licencias", href: "/licencias", number: "03" },
-    { title: "Activaciones", value: metrics.activations, description: "Equipos autorizados actualmente", href: "/activaciones", number: "04" }
-  ];
-
   return (
-    <main className="shell">
-      <aside className="sidebar">
-        <Link className="brand" href="/"><img className="brand-logo" src="/efasfreelancer-logo.svg" alt="EFASfreelancer Soluciones Digitales" /></Link>
-        <p className="nav-label">GESTIÓN</p>
-        <Link className="nav-item active" href="/">▦ <span>Resumen</span></Link>
-        {cards.map(card => <Link className="nav-item" href={card.href} key={card.href}>▣ <span>{card.title}</span></Link>)}
-        {session.role === "admin" && <Link className="nav-item" href="/comercializacion">💳 <span>Comercialización</span></Link>}
-        {session.role === "admin" && <Link className="nav-item" href="/analitica">▤ <span>Analítica de productos</span></Link>}
-        {session.role === "admin" && <Link className="nav-item" href="/administradores">⚙ <span>Administradores</span></Link>}
-        <div className="sidebar-footer"><span className={databaseReady ? "status-dot good" : "status-dot"} />{databaseReady ? "Turso conectado" : "Base de datos no disponible"}</div>
-      </aside>
-      <section className="content">
-        <header className="topbar"><div><span className="eyebrow">ADMINISTRACIÓN</span><h1>Centro de control</h1></div><div className="user-area"><div className="admin-chip"><span className="avatar">{session.email.slice(0,1).toUpperCase()}</span><span><strong>{session.email}</strong><small>{session.role === "admin" ? "Administrador" : session.role === "operator" ? "Operador" : "Solo lectura"}</small></span></div><form action={signOut}><button className="logout" type="submit">Salir</button></form></div></header>
-        <section className="welcome"><div><span className="eyebrow light">EFASfreelancer · RIF V-13313521-5</span><h2>Clientes, productos y licencias<br/>bajo un solo control.</h2><p>Los indicadores se consultan directamente desde la base de datos Turso.</p></div><img className="welcome-logo" src="/efasfreelancer-logo.svg" alt="" /></section>
-        {!databaseReady && <p className="db-warning" role="status">No fue posible conectar con la base de datos. Los datos no están disponibles; revisa la configuración del servidor.</p>}
-        <div className="section-heading"><div><h2>Módulos principales</h2><p>Resumen en tiempo real de los registros existentes.</p></div><span className={databaseReady ? "pill" : "pill warn"}>{databaseReady ? "DATOS REALES · TURSO" : "SIN CONEXIÓN"}</span></div>
-        <div className="module-grid">{cards.map(card => <Link className="module-card" href={card.href} key={card.href}><span className="module-number">{card.number}</span><h3>{card.title}</h3><strong className="metric">{card.value}</strong><p>{card.description}</p><span className="module-status">Abrir módulo <b>↗</b></span></Link>)}</div>
-        <section className="client-note"><span className="note-icon">✓</span><div><h3>Registro y seguridad</h3><p>Las contraseñas se almacenan cifradas mediante hash. Las operaciones administrativas quedan registradas para auditoría. No se muestran datos de demostración.</p></div></section>
-        <footer>EFASfreelancer Soluciones Digitales · RIF V-13313521-5 · {databaseReady ? "Conectado a Turso" : "Verificación de conexión pendiente"}</footer>
+    <main className="public-catalog">
+      <header className="catalog-header">
+        <div className="catalog-header-inner">
+          <Link href="/" className="catalog-brand" aria-label="EFASfreelancer, inicio">
+            <img src="/efasfreelancer-logo.svg" alt="EFASfreelancer Soluciones Digitales" />
+          </Link>
+          <span className="catalog-header-label">CATÁLOGO OFICIAL DE SOFTWARE</span>
+        </div>
+      </header>
+
+      <section className="catalog-intro">
+        <div className="catalog-intro-inner">
+          <p className="catalog-eyebrow">EFASfreelancer · Soluciones Digitales</p>
+          <h1>Software creado para impulsar tu trabajo.</h1>
+          <p className="catalog-lead">Explora nuestro catálogo de productos y conoce las soluciones disponibles para tu empresa y actividad profesional.</p>
+        </div>
       </section>
+
+      <section className="catalog-products" aria-labelledby="catalog-title">
+        <div className="catalog-section-heading">
+          <div>
+            <p className="catalog-eyebrow">NUESTRAS SOLUCIONES</p>
+            <h2 id="catalog-title">Catálogo de productos</h2>
+          </div>
+          <span className="catalog-count">{products.length} {products.length === 1 ? "producto" : "productos"}</span>
+        </div>
+
+        {unavailable ? (
+          <div className="catalog-state" role="status">
+            <h3>Catálogo temporalmente no disponible</h3>
+            <p>No fue posible consultar los productos en este momento. Intenta nuevamente más tarde.</p>
+          </div>
+        ) : products.length === 0 ? (
+          <div className="catalog-state">
+            <h3>Estamos preparando nuestro catálogo</h3>
+            <p>Próximamente publicaremos aquí nuestros productos disponibles.</p>
+          </div>
+        ) : (
+          <div className="catalog-grid">
+            {products.map((product) => (
+              <article className="catalog-card" key={product.id}>
+                <div className="catalog-card-top">
+                  <div className="catalog-product-mark" aria-hidden="true">{product.name.trim().slice(0, 1).toUpperCase()}</div>
+                  <span className="catalog-product-code">{product.product_code || "SOFTWARE"}</span>
+                </div>
+                <div className="catalog-card-content">
+                  <p className="catalog-product-edition">{product.edition || "Solución de software"}</p>
+                  <h3>{product.name}</h3>
+                  {product.version && <p className="catalog-version">Versión {product.version}</p>}
+                  <p className="catalog-description">{product.description || "Conoce esta solución de software de EFASfreelancer."}</p>
+                </div>
+                <div className="catalog-card-footer">
+                  <span>Producto oficial EFASfreelancer</span>
+                  <Link href={`/comprar?productId=${encodeURIComponent(product.id)}`} className="catalog-cta">
+                    Ver planes <span aria-hidden="true">→</span>
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <footer className="catalog-footer">
+        <img src="/efasfreelancer-logo.svg" alt="EFASfreelancer" />
+        <p>EFASfreelancer Soluciones Digitales</p>
+        <span>Catálogo oficial de productos</span>
+      </footer>
+
       <style>{`
-        .shell{min-height:100vh;display:grid;grid-template-columns:245px minmax(0,1fr)}.sidebar{background:#10243a;color:#fff;padding:25px 15px;display:flex;flex-direction:column;min-height:100vh}
-        .brand{display:flex;align-items:center;padding:0 8px 32px;color:#fff;text-decoration:none}.brand-logo{display:block;width:100%;max-width:205px;height:auto;background:#fff;border-radius:6px}.brand strong,.brand small{display:block}
-        .nav-label,.eyebrow{font-size:10px;font-weight:800;letter-spacing:1.6px;color:#8da2b8}.nav-label{padding:0 12px 12px}.nav-item{display:flex;gap:13px;align-items:center;padding:12px;border-radius:8px;color:#d0dbe7;text-decoration:none;font-size:13px;margin-bottom:5px}.nav-item.active,.nav-item:hover{background:#244765;color:#fff}.sidebar-footer{margin-top:auto;font-size:10px;color:#a9bdcf;display:flex;align-items:center;gap:8px;padding:12px 8px}.status-dot{width:7px;height:7px;border-radius:50%;background:#e3a83a}.status-dot.good{background:#4cc38a}
-        .content{padding:30px clamp(18px,4vw,54px);min-width:0}.topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:27px}.topbar h1{font-size:25px;margin:8px 0 0;color:#10243a}.user-area{display:flex;align-items:center;gap:9px}.admin-chip{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e2e8f0;padding:8px 12px;border-radius:10px;max-width:320px}.avatar{width:32px;height:32px;border-radius:50%;background:#eaf0f7;display:grid;place-items:center;color:#10243a;font-weight:800}.admin-chip strong,.admin-chip small{display:block;font-size:11px;overflow-wrap:anywhere}.admin-chip small{color:#667487;margin-top:4px}.logout{border:1px solid #d9e1e9;background:#fff;border-radius:8px;padding:10px 12px;color:#34465a}
-        .welcome{background:linear-gradient(115deg,#10243a,#214b70);border-radius:15px;padding:30px 34px;color:white;display:flex;justify-content:space-between;align-items:center;overflow:hidden}.light{color:#f2bd35}.welcome h2{font-size:clamp(23px,3vw,32px);line-height:1.18;margin:13px 0}.welcome p{font-size:13px;color:#cbd9e6;margin:0}.welcome-logo{width:min(38%,300px);height:auto;opacity:.9;background:#ffffff;border-radius:8px;padding:8px}
-        .section-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:31px 0 17px}.section-heading h2{font-size:18px;margin:0;color:#10243a}.section-heading p{font-size:12px;color:#667487;margin:7px 0 0}.pill{white-space:nowrap;background:#e8f5ed;color:#247749;border-radius:30px;padding:7px 11px;font-size:9px;font-weight:800}.pill.warn{background:#fff1dc;color:#875c0a}
-        .module-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.module-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:18px;min-height:190px;text-decoration:none;color:inherit;display:flex;flex-direction:column}.module-card:hover{border-color:#b8c8d8;box-shadow:0 8px 24px #10243a0b}.module-number{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#edf3f8;color:#10243a;font-weight:800;font-size:11px}.module-card h3{font-size:15px;margin:14px 0 2px}.metric{font-size:27px;color:#10243a}.module-card p{font-size:12px;line-height:1.6;color:#667487;margin:4px 0 12px}.module-status{display:flex;justify-content:space-between;border-top:1px solid #edf0f4;margin-top:auto;padding-top:12px;color:#69788b;font-size:10px}.module-status b{color:#b58b13;font-size:14px}
-        .client-note{display:flex;gap:13px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-top:18px;padding:19px}.note-icon{flex:none;width:29px;height:29px;border-radius:50%;background:#e8f5ed;color:#247749;display:grid;place-items:center;font-weight:800}.client-note h3{font-size:13px;margin:2px 0 7px}.client-note p{font-size:12px;line-height:1.7;color:#667487;margin:0}.db-warning{background:#fff1dc;border:1px solid #f1d39c;border-radius:9px;padding:12px;font-size:12px;color:#79530a}.content footer{padding:26px 0 5px;text-align:center;color:#8390a0;font-size:10px}
-        @media(max-width:1050px){.module-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.welcome-logo{width:34%}}
-        @media(max-width:650px){.shell{grid-template-columns:1fr}.sidebar{min-height:auto;padding:15px}.brand{padding-bottom:15px}.nav-label,.sidebar-footer{display:none}.nav-item{display:inline-flex;padding:9px;margin:0 3px 3px 0;font-size:11px}.content{padding:20px 14px}.topbar{align-items:flex-start}.topbar h1{font-size:21px}.admin-chip{padding:6px}.admin-chip strong{font-size:10px}.welcome{padding:23px 20px}.welcome-logo{display:none}.section-heading{align-items:flex-start;flex-direction:column}.module-grid{grid-template-columns:1fr}.module-card{min-height:auto}.user-area{align-items:flex-start}.logout{padding:8px}.admin-chip{max-width:185px}}
+        .public-catalog{min-height:100vh;background:#f8fafc;color:#0f172a}
+        .catalog-header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);border-bottom:1px solid #e2e8f0}
+        .catalog-header-inner{max-width:1180px;margin:0 auto;min-height:76px;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+        .catalog-brand img{display:block;width:205px;max-width:52vw;height:auto;object-fit:contain}
+        .catalog-header-label{font-size:10px;letter-spacing:1.6px;font-weight:800;color:#64748b;text-align:right}
+        .catalog-intro{background:linear-gradient(120deg,#10243a 0%,#214b70 100%);color:white}
+        .catalog-intro-inner{max-width:1180px;margin:0 auto;padding:66px 24px 70px}
+        .catalog-eyebrow{font-size:10px;font-weight:800;letter-spacing:1.8px;color:#b38b27;margin:0 0 12px}
+        .catalog-intro h1{max-width:760px;margin:0;font-size:clamp(32px,5vw,54px);line-height:1.08;letter-spacing:-1.6px;font-weight:800;color:#fff}
+        .catalog-lead{max-width:670px;margin:20px 0 0;color:#d3dfeb;font-size:16px;line-height:1.75}
+        .catalog-products{max-width:1180px;margin:0 auto;padding:54px 24px 70px}
+        .catalog-section-heading{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:24px}
+        .catalog-section-heading .catalog-eyebrow{color:#64748b;margin-bottom:8px}
+        .catalog-section-heading h2{margin:0;font-size:clamp(23px,3vw,30px);letter-spacing:-.7px;color:#10243a}
+        .catalog-count{white-space:nowrap;border:1px solid #dbe4ee;border-radius:999px;padding:8px 13px;background:white;color:#52657a;font-size:12px;font-weight:700}
+        .catalog-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+        .catalog-card{display:flex;min-width:0;flex-direction:column;overflow:hidden;background:white;border:1px solid #dfe7ef;border-radius:15px;box-shadow:0 5px 18px rgba(16,36,58,.035);transition:transform .18s ease,box-shadow .18s ease}
+        .catalog-card:hover{transform:translateY(-3px);box-shadow:0 14px 32px rgba(16,36,58,.09)}
+        .catalog-card-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:22px 24px 0}
+        .catalog-product-mark{width:52px;height:52px;display:grid;place-items:center;border-radius:13px;background:#10243a;color:#fff;font-size:25px;font-weight:800;box-shadow:inset 0 -3px 0 #f2bd35}
+        .catalog-product-code{max-width:65%;overflow-wrap:anywhere;border:1px solid #e2e8f0;background:#f8fafc;border-radius:6px;padding:6px 9px;color:#64748b;font:700 9px/1.3 ui-monospace,monospace;letter-spacing:.6px}
+        .catalog-card-content{flex:1;padding:20px 24px 24px}
+        .catalog-product-edition{margin:0 0 8px;color:#64748b;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+        .catalog-card h3{margin:0;color:#10243a;font-size:25px;letter-spacing:-.6px;font-weight:800}
+        .catalog-version{margin:8px 0 0;color:#64748b;font-size:12px}
+        .catalog-description{margin:15px 0 0;color:#52657a;font-size:14px;line-height:1.75}
+        .catalog-card-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px 24px;border-top:1px solid #edf1f5;background:#fbfcfe}
+        .catalog-card-footer>span{color:#718096;font-size:10px;font-weight:600}
+        .catalog-cta{display:inline-flex;align-items:center;gap:10px;border-radius:8px;background:#1d4ed8;padding:10px 15px;color:white;text-decoration:none;font-size:12px;font-weight:700;transition:background .15s ease}
+        .catalog-cta:hover{background:#1e40af}
+        .catalog-state{border:1px solid #dfe7ef;border-radius:14px;background:#fff;padding:42px 24px;text-align:center}
+        .catalog-state h3{margin:0;color:#10243a;font-size:18px}.catalog-state p{margin:9px 0 0;color:#64748b;font-size:13px}
+        .catalog-footer{display:flex;flex-direction:column;align-items:center;gap:7px;border-top:1px solid #e2e8f0;background:#fff;padding:30px 20px;text-align:center}
+        .catalog-footer img{width:175px;max-width:70vw;height:auto}.catalog-footer p{margin:6px 0 0;color:#334155;font-size:12px;font-weight:700}.catalog-footer span{color:#94a3b8;font-size:10px}
+        @media(max-width:720px){.catalog-header-inner{min-height:66px;padding:10px 16px}.catalog-header-label{font-size:8px;letter-spacing:1px}.catalog-intro-inner{padding:48px 18px 52px}.catalog-lead{font-size:14px}.catalog-products{padding:38px 16px 52px}.catalog-grid{grid-template-columns:1fr;gap:14px}.catalog-card-top{padding:18px 18px 0}.catalog-card-content{padding:17px 18px 20px}.catalog-card-footer{padding:14px 18px}.catalog-card h3{font-size:22px}}
+        @media(prefers-reduced-motion:reduce){.catalog-card,.catalog-cta{transition:none}.catalog-card:hover{transform:none}}
       `}</style>
     </main>
   );

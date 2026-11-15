@@ -362,8 +362,8 @@ export default function BuySoftwarePage() {
   }, []);
 
   const selectedProduct = products.find((p) => p.id === productId) || products[0];
-  const productPlans = plans.filter((p) => p.product_id === productId || plans.length <= 3);
-  const selectedPlan = productPlans.find((p) => p.id === planId) || productPlans[0] || DEFAULT_PLANS[0];
+  const productPlans = plans.filter((p) => p.product_id === productId);
+  const selectedPlan = productPlans.find((p) => p.id === planId) || productPlans[0] || null;
   const selectedBank = banks.find((b) => b.id === destinationBankId) || banks[0];
 
   useEffect(() => {
@@ -1043,7 +1043,9 @@ export default function BuySoftwarePage() {
                       onChange={(e) => selectPlanById(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg border border-[#d4dfe8] text-xs text-[#0c243e] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
                     >
-                      {productPlans.map((p) => {
+                      {productPlans.length === 0 ? (
+                        <option value="" disabled>Planes aún no publicados para este producto</option>
+                      ) : productPlans.map((p) => {
                         const bsPrice = formatBs(Number(p.price_amount) * (bcvRate || 1));
                         const lifetimeTag = isLifetimePlan(p) ? " (Vitalicio)" : "";
                         return (

@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
         r.certificate_json, p.name AS product_name, cp.name AS plan_name
         FROM payment_reports r
         LEFT JOIN products p ON p.id = r.product_id
-        LEFT JOIN commercial_plans cp ON cp.id = r.plan_id
+        LEFT JOIN commercial_plans cp ON cp.id = r.plan_id AND cp.product_id = r.product_id
         WHERE r.id = ? LIMIT 1`,
       args: [id]
     });

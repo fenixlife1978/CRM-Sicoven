@@ -309,10 +309,21 @@ export default function BuySoftwarePage() {
           setBanks(initialBanks);
           setWhatsappAdminPhone(d.whatsappAdminPhone || "04125773996");
 
-          if (prods[0]) setProductId(prods[0].id);
-          if (fetchedPlans[0]) {
-            setPlanId(fetchedPlans[0].id);
-            setAmount(String(fetchedPlans[0].price_amount));
+          const requestedProductCode = new URLSearchParams(window.location.search).get("product")?.trim().toUpperCase();
+          const requestedProduct = requestedProductCode
+            ? prods.find((product: Product) => String(product.product_code || "").toUpperCase() === requestedProductCode)
+            : undefined;
+          const initialProduct = requestedProduct || prods.find((product: Product) => product.product_code === "SICOVEN_DESKTOP") || prods[0];
+          if (initialProduct) setProductId(initialProduct.id);
+          const initialProductPlans = initialProduct
+            ? fetchedPlans.filter((plan) => plan.product_id === initialProduct.id)
+            : [];
+          if (initialProductPlans[0]) {
+            setPlanId(initialProductPlans[0].id);
+            setAmount(String(initialProductPlans[0].price_amount));
+          } else {
+            setPlanId("");
+            setAmount("");
           }
           if (initialBanks[0]) setDestinationBankId(initialBanks[0].id);
         }

@@ -75,6 +75,17 @@ export default async function HomePage() {
         .client-note{display:flex;gap:13px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-top:18px;padding:19px}.note-icon{flex:none;width:29px;height:29px;border-radius:50%;background:#e8f5ed;color:#247749;display:grid;place-items:center;font-weight:800}.client-note h3{font-size:13px;margin:2px 0 7px}.client-note p{font-size:12px;line-height:1.7;color:#667487;margin:0}.db-warning{background:#fff1dc;border:1px solid #f1d39c;border-radius:9px;padding:12px;font-size:12px;color:#79530a}.content footer{padding:26px 0 5px;text-align:center;color:#8390a0;font-size:10px}
         @media(max-width:1050px){.module-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.welcome-logo{width:34%}}
         @media(max-width:650px){.catalog-preview{padding:8px;font-size:10px}.shell{grid-template-columns:1fr}.sidebar{min-height:auto;padding:15px}.brand{padding-bottom:15px}.nav-label,.sidebar-footer{display:none}.nav-item{display:inline-flex;padding:9px;margin:0 3px 3px 0;font-size:11px}.content{padding:20px 14px}.topbar{align-items:flex-start}.topbar h1{font-size:21px}.admin-chip{padding:6px}.admin-chip strong{font-size:10px}.welcome{padding:23px 20px}.welcome-logo{display:none}.section-heading{align-items:flex-start;flex-direction:column}.module-grid{grid-template-columns:1fr}.module-card{min-height:auto}.user-area{align-items:flex-start}.logout{padding:8px}.admin-chip{max-width:185px}}
+        .sidebar{position:sticky;top:0;height:100vh;align-self:start}
+        .nav-item{transition:background .16s ease,color .16s ease,transform .16s ease}
+        .nav-item:hover{transform:translateX(2px)}
+        .welcome{box-shadow:0 18px 45px rgba(16,36,58,.12)}
+        .module-card{border-radius:16px;box-shadow:0 5px 18px rgba(16,36,58,.025);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+        .module-card:hover{transform:translateY(-3px);border-color:#bfdbfe;box-shadow:0 14px 30px rgba(16,36,58,.08)}
+        .module-number{background:#eff6ff;color:#1d4ed8}
+        .module-status b{color:#1d4ed8}
+        .catalog-preview:hover{background:#eff6ff;border-color:#bfdbfe}
+        @media(max-width:650px){.sidebar{position:relative;height:auto}.user-area{flex-wrap:wrap;justify-content:flex-end}.catalog-preview{order:3}}
+
       `}</style>
     </main>
   );

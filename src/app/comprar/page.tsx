@@ -327,7 +327,7 @@ export default function BuySoftwarePage() {
             identityDocument: data.certificate?.identityDocument || prev?.identityDocument || "",
             phone: data.certificate?.customerPhone || prev?.phone || "",
             email: data.certificate?.customerEmail || prev?.email || "",
-            productName: data.certificate?.productName || data.productName || prev?.productName || "SICOVEN",
+            productName: data.certificate?.productName || data.productName || prev?.productName || "Producto",
             planName: data.certificate?.licenseTypeName || data.planName || prev?.planName || "Plan",
             amount: data.amount || prev?.amount || 0,
             referenceLastSix: data.referenceLastSix || prev?.referenceLastSix || "",
@@ -376,7 +376,7 @@ export default function BuySoftwarePage() {
       const lastName = nameParts.slice(1).join(" ") || "Cliente";
 
       const payload = {
-        productId: productId || products[0]?.id || "prod-sicoven",
+        productId: productId || products[0]?.id || "",
         planId: selectedPlan.id,
         customerType: isCompany ? "company" : "person",
         firstName: isCompany ? "" : firstName,

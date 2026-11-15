@@ -1,5 +1,11 @@
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
 import ModuleWorkspace from "@/components/ModuleWorkspace";
 
-export default function ClientesPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ClientesPage() {
+  const session = await getSession();
+  if (!session) redirect("/login");
   return <ModuleWorkspace kind="clientes" />;
 }

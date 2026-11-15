@@ -25,7 +25,7 @@ export async function GET() {
         r.source_bank,r.destination_bank_id,r.status,r.review_note,r.reviewed_at,r.created_at,
         p.name AS product_name,cp.name AS plan_name,b.bank_name AS destination_bank
         FROM payment_reports r JOIN products p ON p.id=r.product_id
-        JOIN commercial_plans cp ON cp.id=r.plan_id AND cp.product_id=r.product_id AND cp.product_id=r.product_id
+        JOIN commercial_plans cp ON cp.id=r.plan_id AND cp.product_id=r.product_id
         JOIN payment_bank_accounts b ON b.id=r.destination_bank_id
         ORDER BY CASE r.status WHEN 'pending_review' THEN 0 ELSE 1 END,r.created_at DESC LIMIT 300`
     });

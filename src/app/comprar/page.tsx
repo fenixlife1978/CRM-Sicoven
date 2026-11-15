@@ -279,13 +279,15 @@ export default function BuySoftwarePage() {
             : catalogProducts;
           setProducts(prods);
 
-          let fetchedPlans: Plan[] = (d.plans && d.plans.length > 0) ? d.plans : DEFAULT_PLANS;
+          let fetchedPlans: Plan[] = (d.plans && d.plans.length > 0)
+            ? d.plans
+            : requestedProductCode ? [] : DEFAULT_PLANS;
           fetchedPlans = fetchedPlans.map((p: Plan, index: number) => {
             const def = DEFAULT_PLANS[index] || DEFAULT_PLANS[0];
             return {
               ...p,
               popular: p.name.toLowerCase().includes("estándar") || p.name.toLowerCase().includes("profesional") || p.popular,
-              features: p.features || def.features
+              features: p.features || (requestedProductCode ? [] : def.features)
             };
           });
 

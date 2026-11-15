@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
     const db = getDb();
     const [plan, bank] = await Promise.all([
-      db.execute({ sql: "SELECT id,product_id,price_amount FROM commercial_plans WHERE id=? AND product_id=? AND active=1 LIMIT 1", args: [planId, productId] }),
+      db.execute({ sql: "SELECT cp.id,cp.product_id,cp.price_amount FROM commercial_plans cp JOIN products p ON p.id=cp.product_id AND p.status='active' WHERE cp.id=? AND cp.product_id=? AND cp.active=1 LIMIT 1", args: [planId, productId] }),
       db.execute({ sql: "SELECT id FROM payment_bank_accounts WHERE id=? AND active=1 LIMIT 1", args: [destinationBankId] })
     ]);
     if (!plan.rows[0] || !bank.rows[0]) return NextResponse.json({ error: "El plan o la cuenta de destino ya no están disponibles." }, { status: 400, headers: noStore });

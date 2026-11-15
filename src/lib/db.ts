@@ -219,7 +219,7 @@ export async function ensureSchema() {
   if (!existingReportColumns.has("certificate_json")) await db.execute("ALTER TABLE payment_reports ADD COLUMN certificate_json TEXT");
 
   // Seed default product and commercial plans if database has no active products
-  const prodCount = await db.execute("SELECT COUNT(*) AS count FROM products");
+  const prodCount = await db.execute("SELECT COUNT(*) AS count FROM products WHERE product_code = 'SICOVEN_DESKTOP'");
   if (Number(prodCount.rows[0]?.count || 0) === 0) {
     const prodId = "prod-sicoven";
     await db.execute({

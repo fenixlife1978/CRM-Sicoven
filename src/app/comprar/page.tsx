@@ -271,9 +271,12 @@ export default function BuySoftwarePage() {
       .then(async (r) => {
         const d = await r.json();
         if (r.ok) {
-          const prods = d.products && d.products.length > 0 ? d.products : requestedProductCode ? [] : [
+          const catalogProducts = d.products && d.products.length > 0 ? d.products : requestedProductCode ? [] : [
             { id: "prod-sicoven", name: "Sicoven", product_code: "SICOVEN_DESKTOP", edition: "Sistema contable", version: "2.0", description: "Sistema contable y administrativo integral para empresas. Controla ventas, compras, inventario, cuentas y conciliación bancaria." }
           ];
+          const prods = requestedProductCode
+            ? catalogProducts.filter((product: Product) => String(product.product_code || "").trim().toUpperCase() === requestedProductCode)
+            : catalogProducts;
           setProducts(prods);
 
           let fetchedPlans: Plan[] = (d.plans && d.plans.length > 0) ? d.plans : DEFAULT_PLANS;

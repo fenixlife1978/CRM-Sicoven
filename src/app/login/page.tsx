@@ -25,7 +25,7 @@ export default function LoginPage() {
         setError(typeof result.error === "string" ? result.error : "No se pudo iniciar sesión.");
         return;
       }
-      router.replace("/");
+      router.replace("/panel");
       router.refresh();
     } catch {
       setError("No hay conexión con el servidor. Intenta nuevamente.");

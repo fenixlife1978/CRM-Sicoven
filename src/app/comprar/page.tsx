@@ -145,43 +145,6 @@ type ActiveReport = {
   certificate?: CertificateData | null;
 };
 
-const DEFAULT_PLANS: Plan[] = [
-  {
-    id: "plan-basico",
-    product_id: "prod-sicoven",
-    name: "Plan Básico",
-    description: "Ideal para pequeños negocios",
-    price_amount: 49,
-    currency: "USD",
-    duration_days: 90,
-    max_activations: 1,
-    features: ["1 equipo", "1 usuario", "Soporte por 3 meses"]
-  },
-  {
-    id: "plan-estandar",
-    product_id: "prod-sicoven",
-    name: "Plan Estándar",
-    description: "Para negocios en crecimiento",
-    price_amount: 89,
-    currency: "USD",
-    duration_days: 180,
-    max_activations: 3,
-    popular: true,
-    features: ["3 equipos", "3 usuarios", "Soporte por 6 meses"]
-  },
-  {
-    id: "plan-profesional",
-    product_id: "prod-sicoven",
-    name: "Plan Profesional",
-    description: "Para operaciones avanzadas",
-    price_amount: 149,
-    currency: "USD",
-    duration_days: 365,
-    max_activations: 5,
-    features: ["5 equipos", "Usuarios ilimitados", "Soporte por 12 meses"]
-  }
-];
-
 export default function BuySoftwarePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -190,6 +153,7 @@ export default function BuySoftwarePage() {
 
   const [productId, setProductId] = useState("");
   const [planId, setPlanId] = useState("");
+  const [lockedProductId, setLockedProductId] = useState("");
   const [fullName, setFullName] = useState("");
   const [identityDocument, setIdentityDocument] = useState("");
   const [phone, setPhone] = useState("");
@@ -270,22 +234,20 @@ export default function BuySoftwarePage() {
       .then(async (r) => {
         const d = await r.json();
         if (r.ok) {
-          const prods = d.products && d.products.length > 0 ? d.products : [
-            { id: "prod-sicoven", name: "Sicoven", edition: "Sistema contable", version: "2.0", description: "Sistema contable y administrativo integral para empresas. Controla ventas, compras, inventario, cuentas y conciliación bancaria." }
-          ];
+          const prods: Product[] = Array.isArray(d.products) ? d.products : [];
+          const fetchedPlans: Plan[] = Array.isArray(d.plans) ? d.plans : [];
+          const params = new URLSearchParams(window.location.search);
+          const requestedId = params.get("productId") || params.get("producto") || "";
+          const matchedProduct = prods.find((p) => p.id === requestedId);
+          const initialProduct = matchedProduct || prods[0];
           setProducts(prods);
-
-          let fetchedPlans: Plan[] = (d.plans && d.plans.length > 0) ? d.plans : DEFAULT_PLANS;
-          fetchedPlans = fetchedPlans.map((p: Plan, index: number) => {
-            const def = DEFAULT_PLANS[index] || DEFAULT_PLANS[0];
-            return {
-              ...p,
-              popular: p.name.toLowerCase().includes("estándar") || p.name.toLowerCase().includes("profesional") || p.popular,
-              features: p.features || def.features
-            };
-          });
-
           setPlans(fetchedPlans);
+          setLockedProductId(matchedProduct?.id || "");
+          setProductId(initialProduct?.id || "");
+          const initialProductPlans = fetchedPlans.filter((p) => p.product_id === initialProduct?.id);
+          const initialPlan = initialProductPlans[0];
+          setPlanId(initialPlan?.id || "");
+          setAmount(initialPlan ? String(initialPlan.price_amount) : "");
           const initialBanks = d.banks && d.banks.length > 0 ? d.banks : [
             {
               id: "bank-bdv",
@@ -309,19 +271,16 @@ export default function BuySoftwarePage() {
           setBanks(initialBanks);
           setWhatsappAdminPhone(d.whatsappAdminPhone || "04125773996");
 
-          if (prods[0]) setProductId(prods[0].id);
-          if (fetchedPlans[0]) {
-            setPlanId(fetchedPlans[0].id);
-            setAmount(String(fetchedPlans[0].price_amount));
-          }
           if (initialBanks[0]) setDestinationBankId(initialBanks[0].id);
         }
       })
       .catch(() => {
-        setProducts([{ id: "prod-sicoven", name: "Sicoven", edition: "Sistema contable", version: "2.0", description: "Sistema contable y administrativo integral para empresas. Controla ventas, compras, inventario, cuentas y conciliación bancaria." }]);
-        setPlans(DEFAULT_PLANS);
-        setPlanId("plan-basico");
-        setAmount("49.00");
+        setProducts([]);
+        setPlans([]);
+        setProductId("");
+        setPlanId("");
+        setAmount("");
+        setError("No se pudo cargar el catálogo comercial. Actualiza la página antes de reportar un pago.");
         setBanks([
           {
             id: "bank-bdv",
@@ -361,9 +320,16 @@ export default function BuySoftwarePage() {
     }
   }, []);
 
-  const selectedProduct = products.find((p) => p.id === productId) || products[0];
-  const productPlans = plans.filter((p) => p.product_id === productId || plans.length <= 3);
-  const selectedPlan = productPlans.find((p) => p.id === planId) || productPlans[0] || DEFAULT_PLANS[0];
+  const selectedProduct = products.find((p) => p.id === productId) || null;
+  const productPlans = plans.filter((p) => p.product_id === productId);
+  const selectedPlan = productPlans.find((p) => p.id === planId) || productPlans[0] || null;
+
+  const selectProductById = (id: string) => {
+    setProductId(id);
+    const firstPlan = plans.find((p) => p.product_id === id);
+    setPlanId(firstPlan?.id || "");
+    setAmount(firstPlan ? formatBs(Number(firstPlan.price_amount) * (bcvRate || 1)) : "");
+  };
   const selectedBank = banks.find((b) => b.id === destinationBankId) || banks[0];
 
   useEffect(() => {
@@ -373,11 +339,14 @@ export default function BuySoftwarePage() {
   }, [selectedPlan, bcvRate]);
 
   const selectPlanById = (id: string) => {
-    setPlanId(id);
-    const p = plans.find((pl) => pl.id === id);
-    if (p && bcvRate > 0) {
-      setAmount(formatBs(Number(p.price_amount) * bcvRate));
+    const p = plans.find((pl) => pl.id === id && pl.product_id === productId);
+    if (!p) {
+      setPlanId("");
+      setAmount("");
+      return;
     }
+    setPlanId(p.id);
+    if (bcvRate > 0) setAmount(formatBs(Number(p.price_amount) * bcvRate));
   };
 
   async function checkReportStatus(reportId: string) {
@@ -535,7 +504,7 @@ export default function BuySoftwarePage() {
       (reportData.email || email) ? `• *Correo:* ${reportData.email || email}` : "",
       "",
       "📦 *PRODUCTO COMPRADO*",
-      `• *Producto:* ${reportData.productName || "Sicoven"} (Sistema contable)`,
+      `• *Producto:* ${reportData.productName || "Software"}`,
       `• *Plan:* ${reportData.planName}`,
       "",
       "💰 *DATOS DEL PAGO MÓVIL*",
@@ -599,7 +568,7 @@ export default function BuySoftwarePage() {
               Planes
             </button>
             <a
-              href={`https://wa.me/${whatsappAdminPhone.replace(/\D/g, "").replace(/^0/, "58")}?text=${encodeURIComponent("Hola, necesito soporte sobre la adquisición y activación de SICOVEN.")}`}
+              href={`https://wa.me/${whatsappAdminPhone.replace(/\D/g, "").replace(/^0/, "58")}?text=${encodeURIComponent("Hola, necesito soporte sobre la adquisición y activación de " + (selectedProduct?.name || "este producto") + ".")}`}
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
@@ -607,7 +576,7 @@ export default function BuySoftwarePage() {
               <span>Soporte</span>
             </a>
             <a
-              href={`https://wa.me/${whatsappAdminPhone.replace(/\D/g, "").replace(/^0/, "58")}?text=${encodeURIComponent("Hola, deseo más información sobre los planes de SICOVEN.")}`}
+              href={`https://wa.me/${whatsappAdminPhone.replace(/\D/g, "").replace(/^0/, "58")}?text=${encodeURIComponent("Hola, deseo más información sobre los planes de " + (selectedProduct?.name || "este producto") + ".")}`}
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-white transition-colors cursor-pointer"
@@ -734,20 +703,23 @@ export default function BuySoftwarePage() {
           {/* LEFT COLUMN: Product Banner, Plans Stack & Download Card  */}
           {/* ========================================================= */}
           <div className="lg:col-span-5 space-y-4">
-            {/* 1. Product Header Card with Original Sicoven Logo */}
+            {/* Identidad comercial dinámica por producto */}
             <div className="bg-white border border-[#d8e2eb] rounded-xl p-4 shadow-2xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <img
-                  src="/sicoven-logo.svg"
-                  alt="Sicoven · Sistema contable"
-                  className="h-12 sm:h-14 w-auto object-contain max-w-[280px]"
-                />
+                {selectedProduct?.name?.toLowerCase().includes("sicoven") ? (
+                  <img src="/sicoven-logo.svg" alt="SICOVEN" className="h-12 sm:h-14 w-auto object-contain max-w-[280px]" />
+                ) : (
+                  <div className="min-w-0">
+                    <div className="text-2xl font-black tracking-tight text-[#14213D]">{selectedProduct?.name || "Producto de software"}</div>
+                    <div className="text-xs text-[#637992]">{selectedProduct?.edition || "Licencia de software"}</div>
+                  </div>
+                )}
                 <span className="self-start sm:self-center text-[10.5px] font-bold uppercase tracking-wider text-[#14213D] bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md">
-                  Sistema Contable Oficial
+                  {selectedProduct?.edition || "Licencia oficial"}
                 </span>
               </div>
               <p className="text-xs text-[#4e657f] leading-snug mt-2.5 pt-2.5 border-t border-slate-100">
-                Sistema contable y administrativo integral. Control de empresas, plan de cuentas, asientos, compras, ventas, inventario, conciliación bancaria y retenciones.
+                {selectedProduct?.description || ("Adquiere la licencia oficial de " + (selectedProduct?.name || "este producto") + ".")}
               </p>
 
               {/* 3 Pills: Fácil de usar, Reportes en tiempo real, Soporte técnico */}
@@ -768,10 +740,23 @@ export default function BuySoftwarePage() {
             </div>
 
             {/* 2. "Selecciona un plan" Vertical Stack matching Image 1 */}
+            {!lockedProductId && products.length > 1 && (
+              <div className="rounded-xl border border-[#d8e2eb] bg-white p-3">
+                <label htmlFor="checkout-product" className="block text-xs font-semibold text-[#3b536e] mb-1">Producto</label>
+                <select id="checkout-product" value={productId} onChange={(e) => selectProductById(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                  {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                </select>
+              </div>
+            )}
             <div id="seccion-planes" className="space-y-2.5">
               <h3 className="font-black text-sm text-[#0c243e] tracking-tight">
                 Selecciona un plan
               </h3>
+              {productPlans.length === 0 && (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  Este producto todavía no tiene planes activos. No se mostrarán ni se aceptarán planes de otros productos.
+                </p>
+              )}
 
               <div className="space-y-2.5">
                 {productPlans.map((plan) => {
@@ -1303,7 +1288,7 @@ export default function BuySoftwarePage() {
             <div className="bg-[#0c243e] text-white p-3.5 flex items-center justify-between border-b border-slate-700 print:hidden">
               <div className="flex items-center gap-2 text-xs sm:text-sm font-bold">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Certificado Oficial de Licencia SICOVEN</span>
+                <span>Certificado Oficial de Licencia {selectedProduct?.name || "de software"}</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -1345,7 +1330,7 @@ export default function BuySoftwarePage() {
                     <div className="h-8 w-[1px] bg-slate-200 hidden sm:block" />
                     <img
                       src="/sicoven-logo.svg"
-                      alt="Sicoven · Sistema contable"
+                      alt={selectedProduct?.name || "Producto de software"}
                       className="h-8 sm:h-10 w-auto object-contain"
                     />
                   </div>
@@ -1458,7 +1443,7 @@ export default function BuySoftwarePage() {
                     {activeReport.certificate.licenseKey}
                   </div>
                   <p className="text-[9.5px] text-sky-100/70">
-                    Introduce esta clave exactamente en la ventana de activación de SICOVEN para Windows.
+                    Introduce esta clave exactamente en la ventana de activación de {selectedProduct?.name || "tu producto"} para Windows.
                   </p>
                 </div>
 
@@ -1468,7 +1453,7 @@ export default function BuySoftwarePage() {
                     Guía rápida para activar tu sistema:
                   </h4>
                   <ol className="list-decimal list-inside space-y-0.5 text-slate-600 text-[10.5px] leading-relaxed">
-                    <li>Inicia <strong>SICOVEN</strong> en tu computadora con Windows.</li>
+                    <li>Inicia <strong>{selectedProduct?.name || "el producto"}</strong> en tu computadora con Windows.</li>
                     <li>Ve al menú principal y haz clic en <strong>&quot;Licencia&quot;</strong> o <strong>&quot;Activar Producto&quot;</strong>.</li>
                     <li>Pega tu clave oficial <strong>{activeReport.certificate.licenseKey}</strong> y presiona <strong>&quot;Activar&quot;</strong>.</li>
                   </ol>
@@ -1477,7 +1462,7 @@ export default function BuySoftwarePage() {
                 {/* Footer and Signatures */}
                 <div className="mt-5 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-[9.5px] text-slate-400">
                   <div className="text-center sm:text-left">
-                    <p className="font-bold text-slate-600">SICOVEN CRM & Licensing System</p>
+                    <p className="font-bold text-slate-600">{selectedProduct?.name || "Software"} · Sistema de licenciamiento</p>
                     <p>EFASfreelancer Soluciones Digitales · Valencia, Venezuela</p>
                   </div>
                   <div className="text-center sm:text-right font-mono">
@@ -1497,7 +1482,7 @@ export default function BuySoftwarePage() {
           EFASfreelancer Soluciones Digitales · RIF V-13313521-5
         </p>
         <p className="text-[11px] text-slate-400">
-          SICOVEN CRM · Pago Móvil y transferencias sujetos a conciliación bancaria.
+          {selectedProduct?.name || "Software"} · Pago Móvil y transferencias sujetos a conciliación bancaria.
         </p>
       </footer>
     </div>

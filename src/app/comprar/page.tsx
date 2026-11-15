@@ -183,6 +183,7 @@ const DEFAULT_PLANS: Plan[] = [
 ];
 
 export default function BuySoftwarePage() {
+  const requestedProductCode = new URLSearchParams(window.location.search).get("product")?.trim().toUpperCase();
   const [products, setProducts] = useState<Product[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -270,8 +271,8 @@ export default function BuySoftwarePage() {
       .then(async (r) => {
         const d = await r.json();
         if (r.ok) {
-          const prods = d.products && d.products.length > 0 ? d.products : [
-            { id: "prod-sicoven", name: "Sicoven", edition: "Sistema contable", version: "2.0", description: "Sistema contable y administrativo integral para empresas. Controla ventas, compras, inventario, cuentas y conciliación bancaria." }
+          const prods = d.products && d.products.length > 0 ? d.products : requestedProductCode ? [] : [
+            { id: "prod-sicoven", name: "Sicoven", product_code: "SICOVEN_DESKTOP", edition: "Sistema contable", version: "2.0", description: "Sistema contable y administrativo integral para empresas. Controla ventas, compras, inventario, cuentas y conciliación bancaria." }
           ];
           setProducts(prods);
 
@@ -309,19 +310,39 @@ export default function BuySoftwarePage() {
           setBanks(initialBanks);
           setWhatsappAdminPhone(d.whatsappAdminPhone || "04125773996");
 
-          if (prods[0]) setProductId(prods[0].id);
-          if (fetchedPlans[0]) {
-            setPlanId(fetchedPlans[0].id);
-            setAmount(String(fetchedPlans[0].price_amount));
+          const requestedProduct = requestedProductCode
+            ? prods.find((product: Product) => String(product.product_code || "").toUpperCase() === requestedProductCode)
+            : undefined;
+          const initialProduct = requestedProductCode
+            ? requestedProduct
+            : prods.find((product: Product) => product.product_code === "SICOVEN_DESKTOP") || prods[0];
+          if (initialProduct) setProductId(initialProduct.id);
+          const initialProductPlans = initialProduct
+            ? fetchedPlans.filter((plan) => plan.product_id === initialProduct.id)
+            : [];
+          if (initialProductPlans[0]) {
+            setPlanId(initialProductPlans[0].id);
+            setAmount(String(initialProductPlans[0].price_amount));
+          } else {
+            setPlanId("");
+            setAmount("");
           }
           if (initialBanks[0]) setDestinationBankId(initialBanks[0].id);
         }
       })
       .catch(() => {
-        setProducts([{ id: "prod-sicoven", name: "Sicoven", edition: "Sistema contable", version: "2.0", description: "Sistema contable y administrativo integral para empresas. Controla ventas, compras, inventario, cuentas y conciliación bancaria." }]);
-        setPlans(DEFAULT_PLANS);
-        setPlanId("plan-basico");
-        setAmount("49.00");
+        if (requestedProductCode) {
+          setProducts([]);
+          setPlans([]);
+          setProductId("");
+          setPlanId("");
+          setAmount("");
+        } else {
+          setProducts([{ id: "prod-sicoven", name: "Sicoven", product_code: "SICOVEN_DESKTOP", edition: "Sistema contable", version: "2.0", description: "Sistema contable y administrativo integral para empresas. Controla ventas, compras, inventario, cuentas y conciliación bancaria." }]);
+          setPlans(DEFAULT_PLANS);
+          setPlanId("plan-basico");
+          setAmount("49.00");
+        }
         setBanks([
           {
             id: "bank-bdv",
@@ -361,9 +382,9 @@ export default function BuySoftwarePage() {
     }
   }, []);
 
-  const selectedProduct = products.find((p) => p.id === productId) || products[0];
-  const productPlans = plans.filter((p) => p.product_id === productId || plans.length <= 3);
-  const selectedPlan = productPlans.find((p) => p.id === planId) || productPlans[0] || DEFAULT_PLANS[0];
+  const selectedProduct = products.find((p) => p.id === productId) || (requestedProductCode ? undefined : products[0]);
+  const productPlans = plans.filter((p) => p.product_id === productId);
+  const selectedPlan = productPlans.find((p) => p.id === planId) || productPlans[0] || null;
   const selectedBank = banks.find((b) => b.id === destinationBankId) || banks[0];
 
   useEffect(() => {
@@ -1043,7 +1064,9 @@ export default function BuySoftwarePage() {
                       onChange={(e) => selectPlanById(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg border border-[#d4dfe8] text-xs text-[#0c243e] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0066cc]"
                     >
-                      {productPlans.map((p) => {
+                      {productPlans.length === 0 ? (
+                        <option value="" disabled>Planes aún no publicados para este producto</option>
+                      ) : productPlans.map((p) => {
                         const bsPrice = formatBs(Number(p.price_amount) * (bcvRate || 1));
                         const lifetimeTag = isLifetimePlan(p) ? " (Vitalicio)" : "";
                         return (

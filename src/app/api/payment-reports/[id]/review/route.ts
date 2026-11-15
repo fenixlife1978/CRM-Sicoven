@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
           cp.name AS plan_name,cp.duration_days,cp.max_activations,cp.price_amount,cp.currency,
           cp.active AS plan_active,p.status AS product_status,b.active AS bank_active
           FROM payment_reports r JOIN products p ON p.id=r.product_id
-          JOIN commercial_plans cp ON cp.id=r.plan_id
+          JOIN commercial_plans cp ON cp.id=r.plan_id AND cp.product_id=r.product_id
           JOIN payment_bank_accounts b ON b.id=r.destination_bank_id
           WHERE r.id=? LIMIT 1`,
         args: [id]

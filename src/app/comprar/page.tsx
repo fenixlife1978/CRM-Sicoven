@@ -248,26 +248,7 @@ export default function BuySoftwarePage() {
           const initialPlan = initialProductPlans[0];
           setPlanId(initialPlan?.id || "");
           setAmount(initialPlan ? String(initialPlan.price_amount) : "");
-          const initialBanks = d.banks && d.banks.length > 0 ? d.banks : [
-            {
-              id: "bank-bdv",
-              bank_code: "BDV",
-              bank_name: "Banco de Venezuela",
-              holder_name: "EFASfreelancer C.A.",
-              identity_document: "J-12345678-9",
-              phone_number: "0412 123 4567",
-              account_number: "0102-1234-56-7890123456"
-            },
-            {
-              id: "bank-mercantil",
-              bank_code: "MERCANTIL",
-              bank_name: "Banco Mercantil",
-              holder_name: "EFASfreelancer C.A.",
-              identity_document: "J-12345678-9",
-              phone_number: "0412 123 4567",
-              account_number: "0105-1234-56-7890123456"
-            }
-          ];
+          const initialBanks = Array.isArray(d.banks) ? d.banks : [];
           setBanks(initialBanks);
           setWhatsappAdminPhone(d.whatsappAdminPhone || "04125773996");
 
@@ -281,27 +262,8 @@ export default function BuySoftwarePage() {
         setPlanId("");
         setAmount("");
         setError("No se pudo cargar el catálogo comercial. Actualiza la página antes de reportar un pago.");
-        setBanks([
-          {
-            id: "bank-bdv",
-            bank_code: "BDV",
-            bank_name: "Banco de Venezuela",
-            holder_name: "EFASfreelancer C.A.",
-            identity_document: "J-12345678-9",
-            phone_number: "0412 123 4567",
-            account_number: "0102-1234-56-7890123456"
-          },
-          {
-            id: "bank-mercantil",
-            bank_code: "MERCANTIL",
-            bank_name: "Banco Mercantil",
-            holder_name: "EFASfreelancer C.A.",
-            identity_document: "J-12345678-9",
-            phone_number: "0412 123 4567",
-            account_number: "0105-1234-56-7890123456"
-          }
-        ]);
-        setDestinationBankId("bank-bdv");
+        setBanks([]);
+        setDestinationBankId("");
       })
       .finally(() => setLoading(false));
 
@@ -391,6 +353,10 @@ export default function BuySoftwarePage() {
 
     if (!selectedPlan) {
       setError("Por favor selecciona un plan antes de continuar.");
+      return;
+    }
+    if (!selectedBank) {
+      setError("No hay cuentas de pago activas configuradas. Contacta al administrador antes de realizar una transferencia.");
       return;
     }
 
@@ -1191,7 +1157,7 @@ export default function BuySoftwarePage() {
                     </div>
                   </div>
 
-                  {/* Bank Info Card with Official Logo matching Image 1 */}
+                  {/* Bank Info Card with official, configured account details */}
                   {selectedBank && (
                     <div className="bg-[#f0f7fe] border border-[#d1e4fa] rounded-xl p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
                       <div className="flex items-center gap-3">
@@ -1232,6 +1198,11 @@ export default function BuySoftwarePage() {
                       </div>
                     </div>
                   )}
+                  {!selectedBank && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800" role="status">
+                      No hay cuentas bancarias activas configuradas para recibir pagos. El reporte permanecerá deshabilitado hasta que el administrador configure una cuenta válida.
+                    </div>
+                  )}
                 </div>
 
                 {/* Feedback notices */}
@@ -1252,14 +1223,16 @@ export default function BuySoftwarePage() {
                 <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={sending || !selectedPlan || !isReferenceValid}
+                    disabled={sending || !selectedPlan || !selectedBank || !isReferenceValid}
                     title={
-                      !isReferenceValid
-                        ? "Ingresa una referencia bancaria numérica de al menos 6 dígitos para enviar el reporte"
-                        : undefined
+                      !selectedBank
+                        ? "No hay una cuenta bancaria activa configurada"
+                        : !isReferenceValid
+                          ? "Ingresa una referencia bancaria numérica de al menos 6 dígitos para enviar el reporte"
+                          : undefined
                     }
                     className={`w-full py-3 px-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 shadow-md transition-all ${
-                      sending || !selectedPlan || !isReferenceValid
+                      sending || !selectedPlan || !selectedBank || !isReferenceValid
                         ? "bg-slate-400 cursor-not-allowed opacity-75"
                         : "bg-[#0c243e] hover:bg-[#14365d] cursor-pointer"
                     }`}

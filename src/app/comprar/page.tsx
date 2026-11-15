@@ -233,6 +233,7 @@ export default function BuySoftwarePage() {
     fetch("/api/commercial-catalog", { cache: "no-store" })
       .then(async (r) => {
         const d = await r.json();
+        if (!r.ok) throw new Error(typeof d.error === "string" ? d.error : "No se pudo cargar el catálogo comercial.");
         if (r.ok) {
           const prods: Product[] = Array.isArray(d.products) ? d.products : [];
           const fetchedPlans: Plan[] = Array.isArray(d.plans) ? d.plans : [];

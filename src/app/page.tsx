@@ -5,7 +5,6 @@ import { getDb } from "@/lib/db";
 type PublicProduct = {
   id: string;
   name: string;
-  product_code: string | null;
   edition: string | null;
   version: string | null;
   description: string | null;
@@ -20,12 +19,11 @@ export default async function PublicCatalogPage() {
   try {
     await bootstrapDatabase();
     const result = await getDb().execute({
-      sql: "SELECT id,name,product_code,edition,version,description FROM products WHERE status='active' ORDER BY name LIMIT 100"
+      sql: "SELECT id,name,edition,version,description FROM products WHERE status='active' ORDER BY name LIMIT 100"
     });
     products = result.rows.map((row) => ({
       id: String(row.id),
       name: String(row.name),
-      product_code: row.product_code == null ? null : String(row.product_code),
       edition: row.edition == null ? null : String(row.edition),
       version: row.version == null ? null : String(row.version),
       description: row.description == null ? null : String(row.description)
@@ -78,7 +76,7 @@ export default async function PublicCatalogPage() {
               <article className="catalog-card" key={product.id}>
                 <div className="catalog-card-top">
                   <div className="catalog-product-mark" aria-hidden="true">{product.name.trim().slice(0, 1).toUpperCase()}</div>
-                  <span className="catalog-product-code">{product.product_code || "SOFTWARE"}</span>
+                  <span className="catalog-product-code">EFAS SOFTWARE</span>
                 </div>
                 <div className="catalog-card-content">
                   <p className="catalog-product-edition">{product.edition || "Solución de software"}</p>

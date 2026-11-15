@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
         r.certificate_json, p.name AS product_name, cp.name AS plan_name
         FROM payment_reports r
         LEFT JOIN products p ON p.id = r.product_id
-        LEFT JOIN commercial_plans cp ON cp.id = r.plan_id
+        LEFT JOIN commercial_plans cp ON cp.id = r.plan_id AND cp.product_id = r.product_id
         WHERE r.id = ? LIMIT 1`;
       queryArgs = [reportId];
     } else if (identityDocument && /^\\d{6,30}$/.test(referenceFull)) {
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         r.certificate_json, p.name AS product_name, cp.name AS plan_name
         FROM payment_reports r
         LEFT JOIN products p ON p.id = r.product_id
-        LEFT JOIN commercial_plans cp ON cp.id = r.plan_id
+        LEFT JOIN commercial_plans cp ON cp.id = r.plan_id AND cp.product_id = r.product_id
         WHERE (UPPER(r.identity_document) = ? OR UPPER(r.tax_id) = ?) AND (r.reference_full = ? OR (r.reference_full IS NULL AND r.reference_last_six = ?))
         ORDER BY r.created_at DESC LIMIT 1`;
       queryArgs = [identityDocument, identityDocument, referenceFull, referenceLastSix];
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       status,
       reportId: String(report.id),
-      productName: String(report.product_name || "SICOVEN"),
+      productName: String(report.product_name || "Producto"),
       planName: String(report.plan_name || "Licencia"),
       amount: Number(report.amount),
       referenceLastSix: String(report.reference_full || report.reference_last_six),

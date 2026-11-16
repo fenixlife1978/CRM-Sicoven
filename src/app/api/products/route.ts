@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     const downloadUrl = field(data.downloadUrl, 2000);
     const downloadLabel = field(data.downloadLabel, 120);
     if (!name) return NextResponse.json({ error: "El nombre del producto es obligatorio." }, { status: 400 });
+    if (downloadUrl) { try { const parsed = new URL(downloadUrl); if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error(); } catch { return NextResponse.json({ error: "La URL del instalador debe comenzar por https:// o http://." }, { status: 400 }); } }
     const id = randomUUID();
     const db = getDb();
     await db.batch([

@@ -41,9 +41,16 @@ export async function ensureSchema() {
       ON customers(tax_id) WHERE type='company' AND tax_id IS NOT NULL AND tax_id <> ''` },
     { sql: `CREATE TABLE IF NOT EXISTS products (
       id TEXT PRIMARY KEY, name TEXT NOT NULL, edition TEXT, version TEXT, description TEXT,
+      slogan TEXT, public_review TEXT, download_url TEXT, download_label TEXT,
       status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','inactive')),
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )` },
+    { sql: `CREATE TABLE IF NOT EXISTS product_images (
+      id TEXT PRIMARY KEY, product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      url TEXT NOT NULL, pathname TEXT NOT NULL, alt_text TEXT, sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )` },
+    { sql: `CREATE INDEX IF NOT EXISTS product_images_product_idx ON product_images(product_id,sort_order,created_at)` },
     { sql: `CREATE TABLE IF NOT EXISTS licenses (
       id TEXT PRIMARY KEY, customer_id TEXT NOT NULL REFERENCES customers(id),
       product_id TEXT NOT NULL REFERENCES products(id), license_key_hash TEXT NOT NULL UNIQUE,
@@ -117,6 +124,10 @@ export async function ensureSchema() {
   const productColumns = await db.execute("PRAGMA table_info(products)");
   const existingProductColumns = new Set(productColumns.rows.map((column) => String(column.name)));
   if (!existingProductColumns.has("product_code")) await db.execute("ALTER TABLE products ADD COLUMN product_code TEXT");
+  if (!existingProductColumns.has("slogan")) await db.execute("ALTER TABLE products ADD COLUMN slogan TEXT");
+  if (!existingProductColumns.has("public_review")) await db.execute("ALTER TABLE products ADD COLUMN public_review TEXT");
+  if (!existingProductColumns.has("download_url")) await db.execute("ALTER TABLE products ADD COLUMN download_url TEXT");
+  if (!existingProductColumns.has("download_label")) await db.execute("ALTER TABLE products ADD COLUMN download_label TEXT");
   await db.execute(`UPDATE products SET product_code = 'PRODUCT_' || UPPER(REPLACE(id, '-', '_'))
     WHERE product_code IS NULL OR TRIM(product_code) = ''`);
   await db.execute(`UPDATE products SET product_code = 'SICOVEN_DESKTOP'

@@ -18,7 +18,7 @@ export async function GET() {
   try {
     await bootstrapDatabase();
     const result = await getDb().execute({
-      sql: "SELECT p.id,p.name,p.edition,p.version,p.description,p.status,p.created_at,(SELECT COUNT(*) FROM licenses l WHERE l.product_id=p.id) AS license_count FROM products p ORDER BY p.name LIMIT 250"
+      sql: "SELECT p.id,p.name,p.edition,p.version,p.description,p.slogan,p.public_review,p.download_url,p.download_label,p.status,p.created_at,(SELECT COUNT(*) FROM licenses l WHERE l.product_id=p.id) AS license_count FROM products p ORDER BY p.name LIMIT 250"
     });
     return NextResponse.json({ products: result.rows });
   } catch {
@@ -39,13 +39,17 @@ export async function POST(request: NextRequest) {
     const edition = field(data.edition, 100);
     const version = field(data.version, 60);
     const description = field(data.description, 1000);
+    const slogan = field(data.slogan, 180);
+    const publicReview = field(data.publicReview, 1200);
+    const downloadUrl = field(data.downloadUrl, 2000);
+    const downloadLabel = field(data.downloadLabel, 120);
     if (!name) return NextResponse.json({ error: "El nombre del producto es obligatorio." }, { status: 400 });
     const id = randomUUID();
     const db = getDb();
     await db.batch([
       {
-        sql: "INSERT INTO products (id,name,edition,version,description) VALUES (?,?,?,?,?)",
-        args: [id,name,edition,version,description]
+        sql: "INSERT INTO products (id,name,edition,version,description,slogan,public_review,download_url,download_label) VALUES (?,?,?,?,?,?,?,?,?)",
+        args: [id,name,edition,version,description,slogan,publicReview,downloadUrl,downloadLabel]
       },
       {
         sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",

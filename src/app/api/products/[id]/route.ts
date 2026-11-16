@@ -27,8 +27,12 @@ export async function PATCH(request: NextRequest, context: Context) {
     const edition = field(data.edition, 100);
     const version = field(data.version, 60);
     const description = field(data.description, 1000);
+    const slogan = field(data.slogan, 180);
+    const publicReview = field(data.publicReview, 1200);
+    const downloadUrl = field(data.downloadUrl, 2000);
+    const downloadLabel = field(data.downloadLabel, 120);
     const db = getDb();
-    const result = await db.execute({ sql: "UPDATE products SET name=?,edition=?,version=?,description=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='active'", args: [name, edition, version, description, id] });
+    const result = await db.execute({ sql: "UPDATE products SET name=?,edition=?,version=?,description=?,slogan=?,public_review=?,download_url=?,download_label=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='active'", args: [name, edition, version, description, slogan, publicReview, downloadUrl, downloadLabel, id] });
     if (!result.rowsAffected) return NextResponse.json({ error: "Producto no encontrado o inactivo." }, { status: 404 });
     await db.execute({ sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(), session.sub, "product_updated", "product", id, JSON.stringify({ name, edition, version })] });
     return NextResponse.json({ ok: true, id });

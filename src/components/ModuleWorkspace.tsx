@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 
 type Kind = "clientes" | "productos" | "licencias" | "activaciones";
 type RecordItem = Record<string, unknown> & { id?: string };
+type ProductImage = { id: string; url: string; alt_text?: string | null };
 
 const config: Record<Kind, { title: string; endpoint: string; collection: string }> = {
   clientes: { title: "Clientes", endpoint: "/api/customers", collection: "customers" },
@@ -76,6 +77,8 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
   const [certificate, setCertificate] = useState<Record<string, unknown> | null>(null);
   const [editingPlan, setEditingPlan] = useState<RecordItem | null>(null);
   const [editingProduct, setEditingProduct] = useState<RecordItem | null>(null);
+  const [productImages, setProductImages] = useState<ProductImage[]>([]);
+  const [imagesBusy, setImagesBusy] = useState(false);
   const [selectedLicenseId, setSelectedLicenseId] = useState("");
 
   const load = useCallback(async () => {
@@ -122,6 +125,51 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Error al guardar."); }
     finally { setBusy(false); }
+  }
+
+  async function openProductEditor(product: RecordItem) {
+    setEditingProduct(product);
+    setProductImages([]);
+    setError(""); setNotice("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    try {
+      const response = await fetch("/api/products/" + encodeURIComponent(text(product.id)) + "/images", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "No se pudo cargar la galería.");
+      setProductImages(Array.isArray(result.images) ? result.images : []);
+    } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cargar la galería."); }
+  }
+
+  async function uploadProductImages(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!editingProduct || !files.length) return;
+    setImagesBusy(true); setError(""); setNotice("");
+    try {
+      for (const file of files) {
+        const form = new FormData();
+        form.append("file", file);
+        const response = await fetch("/api/products/" + encodeURIComponent(text(editingProduct.id)) + "/images", { method: "POST", body: form });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "No se pudo subir una fotografía.");
+        setProductImages((current) => [...current, result.image as ProductImage]);
+      }
+      setNotice(files.length === 1 ? "Fotografía agregada a la galería." : files.length + " fotografías agregadas a la galería.");
+    } catch (e) { setError(e instanceof Error ? e.message : "Error al subir fotografías."); }
+    finally { setImagesBusy(false); }
+  }
+
+  async function removeProductImage(image: ProductImage) {
+    if (!editingProduct || !window.confirm("¿Eliminar esta fotografía de la galería?")) return;
+    setImagesBusy(true); setError("");
+    try {
+      const response = await fetch("/api/products/" + encodeURIComponent(text(editingProduct.id)) + "/images", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageId: image.id }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "No se pudo eliminar la fotografía.");
+      setProductImages((current) => current.filter((item) => item.id !== image.id));
+      setNotice("Fotografía eliminada.");
+    } catch (e) { setError(e instanceof Error ? e.message : "Error al eliminar la fotografía."); }
+    finally { setImagesBusy(false); }
   }
 
   async function deleteProduct(product: RecordItem) {
@@ -230,8 +278,8 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       <button disabled={busy}>{busy ? "Guardando…" : "Guardar cliente"}</button>
     </form></section>}
     {kind === "productos" && <section className="panel"><h2>{editingProduct ? "Editar producto" : "Registrar producto"}</h2><form key={text(editingProduct?.id)} onSubmit={submit} className="form-grid">
-      <label>Nombre del sistema<input name="name" required maxLength={160} placeholder="Ej. SICOVEN" defaultValue={editingProduct ? text(editingProduct.name) : ""} /></label><label>Edición<input name="edition" placeholder="Profesional, estándar…" defaultValue={editingProduct && text(editingProduct.edition) !== "—" ? text(editingProduct.edition) : ""} /></label><label>Versión<input name="version" defaultValue={editingProduct && text(editingProduct.version) !== "—" ? text(editingProduct.version) : ""} /></label><label className="wide">Descripción<textarea name="description" rows={2} defaultValue={editingProduct && text(editingProduct.description) !== "—" ? text(editingProduct.description) : ""} /></label><button disabled={busy}>{busy ? "Guardando…" : editingProduct ? "Guardar cambios" : "Guardar producto"}</button>{editingProduct && <button type="button" className="secondary" onClick={() => setEditingProduct(null)}>Cancelar edición</button>}
-    </form></section>}
+      <label>Nombre del sistema<input name="name" required maxLength={160} placeholder="Ej. SICOVEN" defaultValue={editingProduct ? text(editingProduct.name) : ""} /></label><label>Edición<input name="edition" placeholder="Profesional, estándar…" defaultValue={editingProduct && text(editingProduct.edition) !== "—" ? text(editingProduct.edition) : ""} /></label><label>Versión<input name="version" defaultValue={editingProduct && text(editingProduct.version) !== "—" ? text(editingProduct.version) : ""} /></label><label className="wide">Descripción general<textarea name="description" rows={2} defaultValue={editingProduct && text(editingProduct.description) !== "—" ? text(editingProduct.description) : ""} /></label><label className="wide">Eslogan público<input name="slogan" maxLength={180} placeholder="Una frase breve que identifique el producto" defaultValue={editingProduct && text(editingProduct.slogan) !== "—" ? text(editingProduct.slogan) : ""} /></label><label className="wide">Reseña o presentación pública<textarea name="publicReview" rows={3} maxLength={1200} placeholder="Escribe una reseña breve para que los visitantes conozcan esta solución." defaultValue={editingProduct && text(editingProduct.public_review) !== "—" ? text(editingProduct.public_review) : ""} /></label><label className="wide">URL del instalador gratuito<input name="downloadUrl" type="url" maxLength={2000} placeholder="https://..." defaultValue={editingProduct && text(editingProduct.download_url) !== "—" ? text(editingProduct.download_url) : ""} /></label><label className="wide">Texto secundario del botón de descarga<input name="downloadLabel" maxLength={120} placeholder="SICOVEN v1.0.34 · Windows 64 bits" defaultValue={editingProduct && text(editingProduct.download_label) !== "—" ? text(editingProduct.download_label) : ""} /></label><button disabled={busy}>{busy ? "Guardando…" : editingProduct ? "Guardar cambios" : "Guardar producto"}</button>{editingProduct && <button type="button" className="secondary" onClick={() => setEditingProduct(null)}>Cancelar edición</button>}
+    </form>{editingProduct && <div className="product-gallery-admin"><h3>Fotografías del producto</h3><p className="muted">Sube todas las imágenes reales que quieras. Se guardan en la galería de este producto y se muestran en el catálogo público. Formatos JPG, PNG, WebP o AVIF; máximo 4 MB por imagen.</p><label className="image-upload">＋ Agregar fotografías<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple disabled={imagesBusy} onChange={uploadProductImages} /></label>{imagesBusy && <p className="muted">Procesando fotografías…</p>}<div className="product-image-admin-grid">{productImages.map((image) => <div key={image.id}><img src={image.url} alt={image.alt_text || "Fotografía del producto"} /><button type="button" className="danger" disabled={imagesBusy} onClick={() => void removeProductImage(image)}>Eliminar</button></div>)}</div>{productImages.length === 0 && <p className="muted">Todavía no has agregado fotografías a este producto.</p>}</div>}</section>}
     {kind === "licencias" && <><section className="panel"><h2>Emitir licencia</h2><form onSubmit={submit} className="form-grid">
       <label>Cliente<select name="customerId" required defaultValue=""><option value="" disabled>Seleccionar cliente</option>{customers.map(c => <option key={text(c.id)} value={text(c.id)}>{text(c.display_name)}</option>)}</select></label>
       <label>Producto<select name="productId" required defaultValue=""><option value="" disabled>Seleccionar producto</option>{products.map(p => <option key={text(p.id)} value={text(p.id)}>{text(p.name)} {p.edition ? `· ${text(p.edition)}` : ""}</option>)}</select></label>
@@ -275,14 +323,14 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       {loading ? <p className="muted">Consultando Turso…</p> : items.length === 0 ? <p className="muted">No hay registros que mostrar.</p> :
       <div className="table-wrap"><table><thead><tr>{(kind === "clientes" ? ["Nombre","Tipo","Documento","Correo","Estado"] : kind === "productos" ? ["Producto","Edición","Versión","Licencias","Estado","Acciones"] : kind === "licencias" ? ["Cliente","Producto","Clave","Estado","Equipos"] : ["Cliente","Producto","Equipo","Estado","Activación","Acción"]).map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{items.map((item,i) => <tr key={text(item.id) || i}>
         {kind === "clientes" && <><td>{text(item.display_name)}</td><td>{text(item.type) === "person" ? "Persona" : "Empresa"}</td><td>{text(item.identity_document || item.tax_id)}</td><td>{text(item.email)}</td><td>{text(item.status)}</td></>}
-        {kind === "productos" && <><td>{text(item.name)}</td><td>{text(item.edition)}</td><td>{text(item.version)}</td><td>{text(item.license_count)}</td><td>{text(item.status)}</td><td><a className="secondary" href={"/comprar?productId=" + encodeURIComponent(text(item.id))} target="_blank" rel="noreferrer">Página de pago</a> <button type="button" className="secondary" disabled={busy} onClick={() => { setEditingProduct(item); setError(""); setNotice(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Editar</button> <button type="button" className="danger" disabled={busy} onClick={() => void deleteProduct(item)}>Eliminar</button></td></>}
+        {kind === "productos" && <><td>{text(item.name)}</td><td>{text(item.edition)}</td><td>{text(item.version)}</td><td>{text(item.license_count)}</td><td>{text(item.status)}</td><td><a className="secondary" href={"/comprar?productId=" + encodeURIComponent(text(item.id))} target="_blank" rel="noreferrer">Página de pago</a> <button type="button" className="secondary" disabled={busy} onClick={() => void openProductEditor(item)}>Editar</button> <button type="button" className="danger" disabled={busy} onClick={() => void deleteProduct(item)}>Eliminar</button></td></>}
         {kind === "licencias" && <><td>{text(item.customer_name)}</td><td>{text(item.product_name)}</td><td>{text(item.license_key_hint)}</td><td>{text(item.status)}</td><td>{text(item.active_activations)} / {text(item.max_activations)} <button type="button" className="secondary" onClick={() => setSelectedLicenseId(text(item.id))}>Ampliar</button> {item.status !== "revoked" && item.status !== "expired" && <button type="button" className="danger" disabled={busy} onClick={() => void replaceLicense(text(item.id))}>Reposición por formateo</button>}</td></>}
         {kind === "activaciones" && <><td>{text(item.customer_name)}</td><td>{text(item.product_name)}</td><td>{text(item.device_label || item.installation_id)}</td><td>{text(item.status)}</td><td>{text(item.activated_at)}</td><td>{item.status === "active" ? <button className="danger" onClick={() => void revoke(text(item.id))}>Revocar</button> : "—"}</td></>}
       </tr>)}</tbody></table></div>}
     </section>
     <style>{`
       .workspace{max-width:1400px;margin:0 auto;padding:28px clamp(14px,4vw,48px);color:#182536}.workspace header{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:24px}.workspace header a{font-size:12px;color:#526b83;text-decoration:none}.workspace h1{font-size:28px;color:#10243a;margin:9px 0}.workspace h2{font-size:15px;margin:0 0 16px;color:#10243a}.eyebrow{font-size:10px;letter-spacing:1.5px;color:#9a7610;font-weight:800;margin:18px 0 0}.muted{font-size:12px;color:#667487;line-height:1.6}.panel{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin:18px 0}.form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.form-grid label{font-size:11px;font-weight:700;color:#526174;display:grid;gap:6px}.form-grid input,.form-grid select,.form-grid textarea,.search input{width:100%;min-width:0;border:1px solid #d8e1ea;border-radius:7px;padding:10px;background:#fff;color:#182536}.form-grid button{align-self:end}.wide{grid-column:1/-1}.workspace button{background:#10243a;color:#fff;border:0;border-radius:7px;padding:10px 14px;font-size:12px;font-weight:700}.workspace button:disabled{opacity:.6}.workspace button.secondary{background:#fff;color:#10243a;border:1px solid #d8e1ea}.workspace button.danger{background:#fff0ef;color:#a32b24;border:1px solid #f0c5c2}.notice,.error{padding:11px 13px;border-radius:8px;font-size:12px}.notice{background:#e8f5ed;color:#247749}.error{background:#fff0ef;color:#a32b24}.search{display:flex;gap:8px;margin:16px 0}.list-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.list-heading span{font-size:11px;color:#667487}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #edf0f4}th{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#667487;background:#f8fafc}td{color:#27384a}.key-box{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:#fff8e7;border:1px solid #f1dfa8;padding:13px;border-radius:8px;margin-top:16px}.key-box strong{font-size:12px}.key-box code{font-size:13px;font-weight:800;overflow-wrap:anywhere}.key-box button{margin-left:auto}@media(max-width:800px){.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.workspace{padding:18px 12px}.workspace header{align-items:flex-start}.form-grid{grid-template-columns:1fr}.wide{grid-column:auto}.panel{padding:14px}.key-box button{margin-left:0}.workspace h1{font-size:24px}}
-      .workspace .panel{border-radius:16px;box-shadow:0 8px 28px rgba(15,23,42,.045);transition:box-shadow .18s ease,border-color .18s ease}
+      .product-gallery-admin{margin-top:18px;padding-top:18px;border-top:1px solid #e7edf3}.product-gallery-admin h3{margin:0 0 7px;font-size:13px;color:#10243a}.image-upload{display:inline-flex;align-items:center;gap:8px;margin:12px 0;padding:11px 15px;border:1px solid #f1d35a;border-radius:8px;background:#ffdf43;color:#10243a;font-size:12px;font-weight:800;cursor:pointer}.image-upload input{display:none}.product-image-admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-top:12px}.product-image-admin-grid>div{display:grid;gap:7px;min-width:0}.product-image-admin-grid img{width:100%;height:100px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0}.workspace .panel{border-radius:16px;box-shadow:0 8px 28px rgba(15,23,42,.045);transition:box-shadow .18s ease,border-color .18s ease}
       .workspace .panel:hover{border-color:#d4dfeb;box-shadow:0 12px 34px rgba(15,23,42,.065)}
       .workspace h1{font-weight:800;letter-spacing:-.045em}
       .workspace h2{font-weight:750;letter-spacing:-.025em}

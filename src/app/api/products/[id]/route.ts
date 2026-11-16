@@ -24,6 +24,7 @@ export async function PATCH(request: NextRequest, context: Context) {
     const data = body as Record<string, unknown>;
     const name = field(data.name, 160);
     if (!name) return NextResponse.json({ error: "El nombre del producto es obligatorio." }, { status: 400 });
+    if (downloadUrl) { try { const parsed = new URL(downloadUrl); if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error(); } catch { return NextResponse.json({ error: "La URL del instalador debe comenzar por https:// o http://." }, { status: 400 }); } }
     const edition = field(data.edition, 100);
     const version = field(data.version, 60);
     const description = field(data.description, 1000);

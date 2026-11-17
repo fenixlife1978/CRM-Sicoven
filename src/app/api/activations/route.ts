@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createPrivateKey, randomUUID, sign } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { bootstrapDatabase } from "@/lib/bootstrap";
@@ -9,6 +9,27 @@ export const runtime = "nodejs";
 const NO_STORE = { "Cache-Control": "no-store" };
 const ACTIVATION_WINDOW_SECONDS = 15 * 60;
 const ACTIVATION_MAX_FAILURES = 10;
+
+function createSiferOfflineToken(input: { licenseId: string; productCode: string; installationId: string; offlineDays: number; expiresAt: string | null }) {
+  const privatePem = process.env.SIFER360_LICENSE_SIGNING_PRIVATE_KEY;
+  if (!privatePem) throw new Error("Falta configurar SIFER360_LICENSE_SIGNING_PRIVATE_KEY en producción.");
+  const issuedAt = new Date();
+  const offlineLimit = new Date(issuedAt.getTime() + input.offlineDays * 86400000);
+  const licenseExpiry = input.expiresAt ? new Date(input.expiresAt) : null;
+  const offlineUntil = licenseExpiry && licenseExpiry.getTime() < offlineLimit.getTime() ? licenseExpiry : offlineLimit;
+  const payload = {
+    v: 1,
+    licenseId: input.licenseId,
+    productCode: input.productCode,
+    installationId: input.installationId,
+    issuedAt: issuedAt.toISOString(),
+    offlineUntil: offlineUntil.toISOString(),
+    expiresAt: licenseExpiry ? licenseExpiry.toISOString() : null
+  };
+  const encodedPayload = Buffer.from(JSON.stringify(payload));
+  const signature = sign(null, encodedPayload, createPrivateKey(privatePem));
+  return encodedPayload.toString("base64url") + "." + signature.toString("base64url");
+}
 
 
 export async function GET() {
@@ -142,16 +163,27 @@ export async function POST(request: NextRequest) {
         });
       }
       await tx.execute({ sql: "UPDATE licenses SET status='active' WHERE id=? AND status='pending'", args: [String(license.id)] });
+      const offlineDays = Math.max(1, Math.min(30, Number(license.offline_days ?? 7)));
+      const offlineToken = productCode === "SIFER360_LICORERIA"
+        ? createSiferOfflineToken({
+            licenseId: String(license.id),
+            productCode: String(license.product_code),
+            installationId,
+            offlineDays,
+            expiresAt: license.expires_at == null ? null : String(license.expires_at)
+          })
+        : null;
       await tx.execute({
         sql: "INSERT INTO audit_log (id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?)",
-        args: [randomUUID(),"license_activated","license",String(license.id),JSON.stringify({activationId,installationId,deviceLabel})]
+        args: [randomUUID(),activation ? "license_revalidated" : "license_activated","license",String(license.id),JSON.stringify({activationId,installationId,deviceLabel})]
       });
       await tx.commit();
       if (ipHash) await db.execute({ sql: "DELETE FROM activation_ip_attempts WHERE ip_hash=?", args: [ipHash] });
       return NextResponse.json({
         ok: true,
         activation: { id: activationId, status: "active" },
-        license: { id: String(license.id), customer: String(license.customer_name), product: String(license.product_name), productCode: String(license.product_code), status: "active", activationRequiresInternet: true, offlineDays: Math.max(1, Math.min(30, Number(license.offline_days ?? 7))) }
+        license: { id: String(license.id), customer: String(license.customer_name), product: String(license.product_name), productCode: String(license.product_code), status: "active", activationRequiresInternet: true, offlineDays },
+        ...(offlineToken ? { offlineToken } : {})
       }, { headers: NO_STORE });
     } catch (error) {
       await tx.rollback().catch(() => undefined);

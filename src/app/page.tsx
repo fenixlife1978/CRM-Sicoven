@@ -48,7 +48,7 @@ export default async function PublicCatalogPage() {
       try {
         const response = await fetch("https://api.github.com/repos/fenixlife1978/Sifer360-licoreria/releases/latest", {
           headers: { Accept: "application/vnd.github+json", "User-Agent": "CRM-SICOVEN-Catalog" },
-          cache: "no-store",
+          next: { revalidate: 300 },
           signal: AbortSignal.timeout(4000)
         });
         if (response.ok) {

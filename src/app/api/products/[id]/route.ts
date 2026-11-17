@@ -24,13 +24,13 @@ export async function PATCH(request: NextRequest, context: Context) {
     const data = body as Record<string, unknown>;
     const name = field(data.name, 160);
     if (!name) return NextResponse.json({ error: "El nombre del producto es obligatorio." }, { status: 400 });
+    const downloadUrl = field(data.downloadUrl, 2000);
     if (downloadUrl) { try { const parsed = new URL(downloadUrl); if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error(); } catch { return NextResponse.json({ error: "La URL del instalador debe comenzar por https:// o http://." }, { status: 400 }); } }
     const edition = field(data.edition, 100);
     const version = field(data.version, 60);
     const description = field(data.description, 1000);
     const slogan = field(data.slogan, 180);
     const publicReview = field(data.publicReview, 1200);
-    const downloadUrl = field(data.downloadUrl, 2000);
     const downloadLabel = field(data.downloadLabel, 120);
     const db = getDb();
     const result = await db.execute({ sql: "UPDATE products SET name=?,edition=?,version=?,description=?,slogan=?,public_review=?,download_url=?,download_label=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='active'", args: [name, edition, version, description, slogan, publicReview, downloadUrl, downloadLabel, id] });

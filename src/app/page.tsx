@@ -64,6 +64,29 @@ export default async function PublicCatalogPage() {
         // Si GitHub no responde, se conserva la última URL guardada en el CRM.
       }
     }
+    // SICOVEN descarga siempre la última Release estable publicada en el repositorio oficial.
+    // Los borradores y prereleases no aparecen en /releases/latest.
+    for (const product of products) {
+      if (product.product_code !== "SICOVEN_DESKTOP") continue;
+      try {
+        const response = await fetch("https://api.github.com/repos/fenixlife1978/sicoven-descargas/releases/latest", {
+          headers: { Accept: "application/vnd.github+json", "User-Agent": "CRM-SICOVEN-Catalog" },
+          next: { revalidate: 300 },
+          signal: AbortSignal.timeout(4000)
+        });
+        if (response.ok) {
+          const release = await response.json() as { tag_name?: string; assets?: Array<{ name?: string; browser_download_url?: string }> };
+          const installer = (release.assets || []).find(asset => /^SICOVEN-Setup-.*-x64\.exe$/i.test(String(asset.name || "")));
+          if (installer?.browser_download_url) {
+            product.version = String(release.tag_name || "").replace(/^v/i, "") || product.version;
+            product.download_url = installer.browser_download_url;
+            product.download_label = "Actualización gratuita · SICOVEN Windows x64 · v" + product.version;
+          }
+        }
+      } catch {
+        // Si GitHub no responde o aún no hay Release estable, se conserva la URL guardada en el CRM.
+      }
+    }
     if (products.length) {
       const images = await getDb().execute({ sql: "SELECT id,product_id,url,alt_text FROM product_images WHERE product_id IN (" + products.map(() => "?").join(",") + ") ORDER BY sort_order,created_at", args: products.map((product) => product.id) });
       products = products.map((product) => ({ ...product, images: images.rows.filter((image) => String(image.product_id) === product.id).map((image) => ({ id: String(image.id), url: String(image.url), alt_text: image.alt_text == null ? null : String(image.alt_text) })) }));

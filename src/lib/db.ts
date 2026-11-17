@@ -229,6 +229,32 @@ export async function ensureSchema() {
     await db.execute("UPDATE products SET name = 'Sicoven', edition = 'Sistema contable' WHERE id = 'prod-sicoven'");
   }
 
+  // Producto SIFER360 LICORERÍA: independiente de SICOVEN y con planes comerciales propios.
+  const siferProductResult = await db.execute({
+    sql: "SELECT id FROM products WHERE id=? OR product_code=? LIMIT 1",
+    args: ["prod-sifer360-licoreria", "SIFER360_LICORERIA"]
+  });
+  let siferProductId = siferProductResult.rows[0]?.id ? String(siferProductResult.rows[0].id) : "";
+  if (!siferProductId) {
+    siferProductId = "prod-sifer360-licoreria";
+    await db.execute({
+      sql: "INSERT INTO products (id,name,product_code,edition,version,description,slogan,public_review,download_url,download_label,status) VALUES (?,?,?,?,?,?,?,?,?,?, 'active')",
+      args: [siferProductId, "SIFER360 Licorería", "SIFER360_LICORERIA", "Punto de venta y gestión para licorerías", "1.0.4", "Sistema de escritorio para ventas, caja, inventario, compras, cuentas por cobrar y pagar, contabilidad y control fiscal para licorerías.", "Control integral de tu licorería, con datos locales y operación LAN.", "Punto de venta y administración especializado en licorerías. SQLite local como fuente operativa y respaldo externo cifrado opcional.", "https://github.com/fenixlife1978/Sifer360-licoreria/releases/latest", "Descarga gratuita · Instalador Windows"]
+    });
+  } else {
+    await db.execute({
+      sql: "UPDATE products SET product_code='SIFER360_LICORERIA' WHERE id=? AND (product_code IS NULL OR TRIM(product_code)='')",
+      args: [siferProductId]
+    });
+  }
+  const siferPlanCount = await db.execute({ sql: "SELECT COUNT(*) AS count FROM commercial_plans WHERE product_id=?", args: [siferProductId] });
+  if (Number(siferPlanCount.rows[0]?.count || 0) === 0) {
+    await db.batch([
+      { sql: "INSERT INTO commercial_plans (id,product_id,name,description,price_amount,currency,duration_days,max_activations,active) VALUES (?,?,?,?,?,?,30,?,1)", args: ["plan-sifer360-basico", siferProductId, "Básico", "Para una licorería con operación de una caja.", 29, "USD", 1] },
+      { sql: "INSERT INTO commercial_plans (id,product_id,name,description,price_amount,currency,duration_days,max_activations,active) VALUES (?,?,?,?,?,?,30,?,1)", args: ["plan-sifer360-profesional", siferProductId, "Profesional", "Para negocios con varias cajas y mayor capacidad operativa.", 49, "USD", 2] },
+      { sql: "INSERT INTO commercial_plans (id,product_id,name,description,price_amount,currency,duration_days,max_activations,active) VALUES (?,?,?,?,?,?,30,?,1)", args: ["plan-sifer360-empresarial", siferProductId, "Empresarial", "Para operaciones ampliadas con hasta cinco equipos.", 79, "USD", 5] }
+    ], "write");
+  }
   const bankCount = await db.execute("SELECT COUNT(*) AS count FROM payment_bank_accounts");
   if (Number(bankCount.rows[0]?.count || 0) === 0) {
     await db.execute({

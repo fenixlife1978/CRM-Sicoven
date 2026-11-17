@@ -2,10 +2,12 @@ import Link from "next/link";
 import { bootstrapDatabase } from "@/lib/bootstrap";
 import { getDb } from "@/lib/db";
 import ProductGallery from "@/components/ProductGallery";
+import ProductDownloadLink from "@/components/ProductDownloadLink";
 
 type PublicProduct = {
   id: string;
   name: string;
+  product_code: string | null;
   edition: string | null;
   version: string | null;
   description: string | null;
@@ -25,11 +27,12 @@ export default async function PublicCatalogPage() {
   try {
     await bootstrapDatabase();
     const result = await getDb().execute({
-      sql: "SELECT id,name,edition,version,description,slogan,public_review,download_url,download_label FROM products WHERE status='active' ORDER BY name LIMIT 100"
+      sql: "SELECT id,name,product_code,edition,version,description,slogan,public_review,download_url,download_label FROM products WHERE status='active' ORDER BY name LIMIT 100"
     });
     products = result.rows.map((row) => ({
       id: String(row.id),
       name: String(row.name),
+      product_code: row.product_code == null ? null : String(row.product_code),
       edition: row.edition == null ? null : String(row.edition),
       version: row.version == null ? null : String(row.version),
       description: row.description == null ? null : String(row.description),
@@ -39,6 +42,28 @@ export default async function PublicCatalogPage() {
       download_label: row.download_label == null ? null : String(row.download_label),
       images: []
     }));
+    // La última Release oficial de SIFER360 mantiene actualizado el instalador del catálogo sin edición manual.
+    for (const product of products) {
+      if (product.product_code !== "SIFER360_LICORERIA") continue;
+      try {
+        const response = await fetch("https://api.github.com/repos/fenixlife1978/Sifer360-licoreria/releases/latest", {
+          headers: { Accept: "application/vnd.github+json", "User-Agent": "CRM-SICOVEN-Catalog" },
+          next: { revalidate: 300 },
+          signal: AbortSignal.timeout(4000)
+        });
+        if (response.ok) {
+          const release = await response.json() as { tag_name?: string; assets?: Array<{ name?: string; browser_download_url?: string }> };
+          const installer = (release.assets || []).find(asset => /SIFER360-.*-Instalador\.exe$/i.test(String(asset.name || "")));
+          if (installer?.browser_download_url) {
+            product.version = String(release.tag_name || "").replace(/^v/i, "") || product.version;
+            product.download_url = installer.browser_download_url;
+            product.download_label = "Descarga gratuita · Instalador Windows " + product.version;
+          }
+        }
+      } catch {
+        // Si GitHub no responde, se conserva la última URL guardada en el CRM.
+      }
+    }
     if (products.length) {
       const images = await getDb().execute({ sql: "SELECT id,product_id,url,alt_text FROM product_images WHERE product_id IN (" + products.map(() => "?").join(",") + ") ORDER BY sort_order,created_at", args: products.map((product) => product.id) });
       products = products.map((product) => ({ ...product, images: images.rows.filter((image) => String(image.product_id) === product.id).map((image) => ({ id: String(image.id), url: String(image.url), alt_text: image.alt_text == null ? null : String(image.alt_text) })) }));
@@ -101,10 +126,12 @@ export default async function PublicCatalogPage() {
                   {product.version && <p className="catalog-version">Versión {product.version}</p>}
                   <p className="catalog-description">{product.public_review || product.description || "Conoce esta solución de software de EFASfreelancer."}</p>
                   {product.download_url ? (
-                    <a className="catalog-download" href={product.download_url} target="_blank" rel="noopener noreferrer">
-                      <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 8.5 21 6v17H4V8.5Zm20-2.8L44 3v20H24V5.7ZM4 25h17v17L4 39.5V25Zm20 0h20v20l-20-2.8V25Z" fill="currentColor"/></svg>
-                      <span><strong>DESCARGAR INSTALADOR</strong><small>{product.download_label || ("Descarga gratuita · " + product.name)}</small></span>
-                    </a>
+                    <ProductDownloadLink
+                      href={product.download_url}
+                      productCode={product.product_code || ""}
+                      productName={product.name}
+                      label={product.download_label || ("Descarga gratuita · " + product.name)}
+                    />
                   ) : (
                     <div className="catalog-download catalog-download-disabled" aria-disabled="true">
                       <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 8.5 21 6v17H4V8.5Zm20-2.8L44 3v20H24V5.7ZM4 25h17v17L4 39.5V25Zm20 0h20v20l-20-2.8V25Z" fill="currentColor"/></svg>

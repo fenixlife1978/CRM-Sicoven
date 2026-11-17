@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 export const runtime = "nodejs";
 
 const eventTypes = new Set(["page_view","download_click","whatsapp_click","lead_submit"]);
+const desktopEventTypes = new Set(["app_launch","trial_started","trial_expired","license_activated","license_check","app_error"]);
 
 function clean(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
@@ -41,7 +42,8 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!allowedAnalyticsOrigin(request.headers.get("origin"))) {
+  const origin = request.headers.get("origin");
+  if (origin && !allowedAnalyticsOrigin(origin)) {
     return json(request, { error: "Origen no autorizado." }, 403);
   }
   try {
@@ -50,9 +52,17 @@ export async function POST(request: NextRequest) {
     const body: unknown = await request.json();
     if (!body || typeof body !== "object" || Array.isArray(body)) return json(request, { error: "Solicitud inválida." }, 400);
     const data = body as Record<string, unknown>;
-    const productCode = clean(data.product_code, 80);
+    const productCode = clean(data.product_code, 80)?.toUpperCase() || null;
     const eventType = clean(data.event_type, 32);
-    if (!productCode || !eventType || !eventTypes.has(eventType)) return json(request, { error: "Producto o evento inválido." }, 400);
+    const isDesktopEvent = !!eventType && desktopEventTypes.has(eventType);
+    if (!productCode || !eventType || (!eventTypes.has(eventType) && !isDesktopEvent)) return json(request, { error: "Producto o evento inválido." }, 400);
+    // Las peticiones sin Origin solo se admiten para eventos técnicos de SIFER360 Desktop.
+    if (!origin && !(productCode === "SIFER360_LICORERIA" && isDesktopEvent)) {
+      return json(request, { error: "Evento de escritorio no autorizado." }, 403);
+    }
+    if (isDesktopEvent && productCode !== "SIFER360_LICORERIA") {
+      return json(request, { error: "El evento técnico no corresponde a este producto." }, 403);
+    }
     const db = getDb();
     const product = await db.execute({ sql: "SELECT id FROM products WHERE product_code=? AND status='active' LIMIT 1", args: [productCode] });
     if (!product.rows[0]) return json(request, { error: "Producto no registrado o inactivo." }, 404);
@@ -75,7 +85,9 @@ export async function POST(request: NextRequest) {
     let referrerHost: string | null = null;
     if (referrer) { try { referrerHost = new URL(referrer).hostname.slice(0,160); } catch { referrerHost = null; } }
     await db.execute({
-      sql: "INSERT INTO product_analytics_events(id,product_id,event_type,session_id,source,medium,campaign,landing_path,referrer_host) VALUES(?,?,?,?,?,?,?,?,?)",
+      sql: isDesktopEvent
+        ? "INSERT INTO product_telemetry_events(id,product_id,event_type,session_id,source,medium,campaign,landing_path,referrer_host) VALUES(?,?,?,?,?,?,?,?,?)"
+        : "INSERT INTO product_analytics_events(id,product_id,event_type,session_id,source,medium,campaign,landing_path,referrer_host) VALUES(?,?,?,?,?,?,?,?,?)",
       args: [newAnalyticsEventId(),String(product.rows[0].id),eventType,clean(data.session_id,80),clean(data.source,100),clean(data.medium,100),clean(data.campaign,120),clean(data.landing_path,300),referrerHost]
     });
     return json(request, { ok: true }, 202);

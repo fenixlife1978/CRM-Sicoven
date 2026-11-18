@@ -99,6 +99,14 @@ export async function ensureSchema() {
       active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )` },
+    { sql: `CREATE TABLE IF NOT EXISTS commercial_plan_features (
+      id TEXT PRIMARY KEY, plan_id TEXT NOT NULL REFERENCES commercial_plans(id) ON DELETE CASCADE,
+      feature_text TEXT NOT NULL CHECK(length(trim(feature_text)) BETWEEN 1 AND 180),
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )` },
+    { sql: `CREATE INDEX IF NOT EXISTS commercial_plan_features_order_idx
+      ON commercial_plan_features(plan_id,sort_order,created_at)` },
     { sql: `CREATE TABLE IF NOT EXISTS payment_bank_accounts (
       id TEXT PRIMARY KEY, bank_code TEXT NOT NULL CHECK(bank_code IN ('BDV','MERCANTIL')),
       bank_name TEXT NOT NULL, holder_name TEXT NOT NULL, identity_document TEXT NOT NULL,

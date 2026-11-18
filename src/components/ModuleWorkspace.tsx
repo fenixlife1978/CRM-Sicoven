@@ -79,7 +79,8 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
   const [editingPlan, setEditingPlan] = useState<RecordItem | null>(null);
   const [editingProduct, setEditingProduct] = useState<RecordItem | null>(null);
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
-  const [imagesBusy, setImagesBusy] = useState(false);\n  const [mediaProgress, setMediaProgress] = useState(0);
+  const [imagesBusy, setImagesBusy] = useState(false);
+  const [mediaProgress, setMediaProgress] = useState(0);
   const [selectedLicenseId, setSelectedLicenseId] = useState("");
 
   const load = useCallback(async () => {

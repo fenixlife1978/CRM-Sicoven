@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { upload } from "@vercel/blob/client";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 
 type Kind = "clientes" | "productos" | "licencias" | "activaciones";
 type RecordItem = Record<string, unknown> & { id?: string };
-type ProductImage = { id: string; url: string; alt_text?: string | null };
+type ProductImage = { id: string; url: string; alt_text?: string | null; media_type?: "image" | "video" | null };
 
 const config: Record<Kind, { title: string; endpoint: string; collection: string }> = {
   clientes: { title: "Clientes", endpoint: "/api/customers", collection: "customers" },
@@ -78,7 +79,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
   const [editingPlan, setEditingPlan] = useState<RecordItem | null>(null);
   const [editingProduct, setEditingProduct] = useState<RecordItem | null>(null);
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
-  const [imagesBusy, setImagesBusy] = useState(false);
+  const [imagesBusy, setImagesBusy] = useState(false);\n  const [mediaProgress, setMediaProgress] = useState(0);
   const [selectedLicenseId, setSelectedLicenseId] = useState("");
 
   const load = useCallback(async () => {
@@ -140,34 +141,54 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cargar la galería."); }
   }
 
-  async function uploadProductImages(event: ChangeEvent<HTMLInputElement>) {
+  async function uploadProductMedia(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     if (!editingProduct || !files.length) return;
-    setImagesBusy(true); setError(""); setNotice("");
+    setImagesBusy(true); setMediaProgress(0); setError(""); setNotice("");
     try {
+      const productId = text(editingProduct.id);
       for (const file of files) {
-        const form = new FormData();
-        form.append("file", file);
-        const response = await fetch("/api/products/" + encodeURIComponent(text(editingProduct.id)) + "/images", { method: "POST", body: form });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "No se pudo subir una fotografía.");
-        setProductImages((current) => [...current, result.image as ProductImage]);
+        const mediaType = file.type.startsWith("video/") ? "video" : "image";
+        const allowed = mediaType === "video"
+          ? ["video/mp4", "video/webm", "video/quicktime"]
+          : ["image/jpeg", "image/png", "image/webp", "image/avif"];
+        const maxBytes = mediaType === "video" ? 200 * 1024 * 1024 : 15 * 1024 * 1024;
+        if (!allowed.includes(file.type)) throw new Error("Formato no compatible: " + file.name + ". Usa JPG, PNG, WebP, AVIF, MP4, WebM o MOV.");
+        if (!file.size || file.size > maxBytes) throw new Error(file.name + " supera el máximo permitido de " + (mediaType === "video" ? "200 MB" : "15 MB") + ".");
+        const safeName = file.name.toLowerCase().replace(/[^a-z0-9.-]+/g, "-").slice(-90) || (mediaType === "video" ? "video.mp4" : "imagen");
+        await upload("products/" + productId + "/" + crypto.randomUUID() + "-" + safeName, file, {
+          access: "public",
+          handleUploadUrl: "/api/products/" + encodeURIComponent(productId) + "/media/upload",
+          clientPayload: JSON.stringify({ productId, mediaType, altText: file.name.slice(0, 180) }),
+          multipart: file.size > 100 * 1024 * 1024,
+          onUploadProgress: ({ percentage }) => setMediaProgress(Math.round(percentage))
+        });
+        let latest: ProductImage[] = [];
+        for (let attempt = 0; attempt < 8; attempt++) {
+          const response = await fetch("/api/products/" + encodeURIComponent(productId) + "/images", { cache: "no-store" });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "No se pudo actualizar la galería.");
+          latest = Array.isArray(result.images) ? result.images as ProductImage[] : [];
+          if (latest.some(item => item.url.includes(safeName.split(".")[0]))) break;
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        setProductImages(latest);
       }
-      setNotice(files.length === 1 ? "Fotografía agregada a la galería." : files.length + " fotografías agregadas a la galería.");
-    } catch (e) { setError(e instanceof Error ? e.message : "Error al subir fotografías."); }
-    finally { setImagesBusy(false); }
+      setNotice(files.length === 1 ? "Archivo agregado a la galería del producto." : files.length + " archivos agregados a la galería.");
+    } catch (e) { setError(e instanceof Error ? e.message : "Error al subir archivos multimedia."); }
+    finally { setImagesBusy(false); setMediaProgress(0); }
   }
 
   async function removeProductImage(image: ProductImage) {
-    if (!editingProduct || !window.confirm("¿Eliminar esta fotografía de la galería?")) return;
+    if (!editingProduct || !window.confirm("¿Eliminar este " + (image.media_type === "video" ? "video" : "fotografía") + " de la galería?")) return;
     setImagesBusy(true); setError("");
     try {
       const response = await fetch("/api/products/" + encodeURIComponent(text(editingProduct.id)) + "/images", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageId: image.id }) });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "No se pudo eliminar la fotografía.");
+      if (!response.ok) throw new Error(result.error || "No se pudo eliminar el archivo.");
       setProductImages((current) => current.filter((item) => item.id !== image.id));
-      setNotice("Fotografía eliminada.");
+      setNotice("Archivo multimedia eliminado.");
     } catch (e) { setError(e instanceof Error ? e.message : "Error al eliminar la fotografía."); }
     finally { setImagesBusy(false); }
   }
@@ -279,7 +300,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     </form></section>}
     {kind === "productos" && <section className="panel"><h2>{editingProduct ? "Editar producto" : "Registrar producto"}</h2><form key={text(editingProduct?.id)} onSubmit={submit} className="form-grid">
       <label>Nombre del sistema<input name="name" required maxLength={160} placeholder="Ej. SICOVEN" defaultValue={editingProduct ? text(editingProduct.name) : ""} /></label><label>Edición<input name="edition" placeholder="Profesional, estándar…" defaultValue={editingProduct && text(editingProduct.edition) !== "—" ? text(editingProduct.edition) : ""} /></label><label>Versión<input name="version" defaultValue={editingProduct && text(editingProduct.version) !== "—" ? text(editingProduct.version) : ""} /></label><label className="wide">Descripción general<textarea name="description" rows={2} defaultValue={editingProduct && text(editingProduct.description) !== "—" ? text(editingProduct.description) : ""} /></label><label className="wide">Eslogan público<input name="slogan" maxLength={180} placeholder="Una frase breve que identifique el producto" defaultValue={editingProduct && text(editingProduct.slogan) !== "—" ? text(editingProduct.slogan) : ""} /></label><label className="wide">Reseña o presentación pública<textarea name="publicReview" rows={3} maxLength={1200} placeholder="Escribe una reseña breve para que los visitantes conozcan esta solución." defaultValue={editingProduct && text(editingProduct.public_review) !== "—" ? text(editingProduct.public_review) : ""} /></label><label className="wide">URL del instalador gratuito<input name="downloadUrl" type="url" maxLength={2000} placeholder="https://..." defaultValue={editingProduct && text(editingProduct.download_url) !== "—" ? text(editingProduct.download_url) : ""} /></label><label className="wide">Texto secundario del botón de descarga<input name="downloadLabel" maxLength={120} placeholder="SICOVEN v1.0.34 · Windows 64 bits" defaultValue={editingProduct && text(editingProduct.download_label) !== "—" ? text(editingProduct.download_label) : ""} /></label><button disabled={busy}>{busy ? "Guardando…" : editingProduct ? "Guardar cambios" : "Guardar producto"}</button>{editingProduct && <button type="button" className="secondary" onClick={() => setEditingProduct(null)}>Cancelar edición</button>}
-    </form>{editingProduct && <div className="product-gallery-admin"><h3>Fotografías del producto</h3><p className="muted">Sube todas las imágenes reales que quieras. Se guardan en la galería de este producto y se muestran en el catálogo público. Formatos JPG, PNG, WebP o AVIF; máximo 4 MB por imagen.</p><label className="image-upload">＋ Agregar fotografías<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple disabled={imagesBusy} onChange={uploadProductImages} /></label>{imagesBusy && <p className="muted">Procesando fotografías…</p>}<div className="product-image-admin-grid">{productImages.map((image) => <div key={image.id}><img src={image.url} alt={image.alt_text || "Fotografía del producto"} /><button type="button" className="danger" disabled={imagesBusy} onClick={() => void removeProductImage(image)}>Eliminar</button></div>)}</div>{productImages.length === 0 && <p className="muted">Todavía no has agregado fotografías a este producto.</p>}</div>}</section>}
+    </form>{editingProduct && <div className="product-gallery-admin"><h3>Galería multimedia del producto</h3><p className="muted">Agrega fotografías y videos exclusivos de este producto. Se mostrarán en su ficha del catálogo público. Imágenes: JPG, PNG, WebP o AVIF hasta 15 MB. Videos: MP4, WebM o MOV hasta 200 MB.</p><div className="media-upload-actions"><label className="image-upload">＋ Agregar fotografías<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple disabled={imagesBusy} onChange={uploadProductMedia} /></label><label className="image-upload video-upload">▶ Agregar videos<input type="file" accept="video/mp4,video/webm,video/quicktime" multiple disabled={imagesBusy} onChange={uploadProductMedia} /></label></div>{imagesBusy && <div className="media-progress"><p className="muted">Subiendo archivos directamente al almacenamiento… {mediaProgress}%</p><progress max="100" value={mediaProgress} /></div>}<div className="product-image-admin-grid">{productImages.map((media) => <div key={media.id} className="product-media-admin-item">{media.media_type === "video" ? <video src={media.url} controls preload="metadata" /> : <img src={media.url} alt={media.alt_text || "Fotografía del producto"} />}<small>{media.media_type === "video" ? "VIDEO" : "FOTOGRAFÍA"}</small><button type="button" className="danger" disabled={imagesBusy} onClick={() => void removeProductImage(media)}>Eliminar</button></div>)}</div>{productImages.length === 0 && <p className="muted">Todavía no has agregado fotografías ni videos a este producto.</p>}</div>}</section>}
     {kind === "licencias" && <><section className="panel"><h2>Emitir licencia</h2><form onSubmit={submit} className="form-grid">
       <label>Cliente<select name="customerId" required defaultValue=""><option value="" disabled>Seleccionar cliente</option>{customers.map(c => <option key={text(c.id)} value={text(c.id)}>{text(c.display_name)}</option>)}</select></label>
       <label>Producto<select name="productId" required defaultValue=""><option value="" disabled>Seleccionar producto</option>{products.map(p => <option key={text(p.id)} value={text(p.id)}>{text(p.name)} {p.edition ? `· ${text(p.edition)}` : ""}</option>)}</select></label>
@@ -330,7 +351,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
     </section>
     <style>{`
       .workspace{max-width:1400px;margin:0 auto;padding:28px clamp(14px,4vw,48px);color:#182536}.workspace header{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:24px}.workspace header a{font-size:12px;color:#526b83;text-decoration:none}.workspace h1{font-size:28px;color:#10243a;margin:9px 0}.workspace h2{font-size:15px;margin:0 0 16px;color:#10243a}.eyebrow{font-size:10px;letter-spacing:1.5px;color:#9a7610;font-weight:800;margin:18px 0 0}.muted{font-size:12px;color:#667487;line-height:1.6}.panel{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin:18px 0}.form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.form-grid label{font-size:11px;font-weight:700;color:#526174;display:grid;gap:6px}.form-grid input,.form-grid select,.form-grid textarea,.search input{width:100%;min-width:0;border:1px solid #d8e1ea;border-radius:7px;padding:10px;background:#fff;color:#182536}.form-grid button{align-self:end}.wide{grid-column:1/-1}.workspace button{background:#10243a;color:#fff;border:0;border-radius:7px;padding:10px 14px;font-size:12px;font-weight:700}.workspace button:disabled{opacity:.6}.workspace button.secondary{background:#fff;color:#10243a;border:1px solid #d8e1ea}.workspace button.danger{background:#fff0ef;color:#a32b24;border:1px solid #f0c5c2}.notice,.error{padding:11px 13px;border-radius:8px;font-size:12px}.notice{background:#e8f5ed;color:#247749}.error{background:#fff0ef;color:#a32b24}.search{display:flex;gap:8px;margin:16px 0}.list-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.list-heading span{font-size:11px;color:#667487}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #edf0f4}th{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#667487;background:#f8fafc}td{color:#27384a}.key-box{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:#fff8e7;border:1px solid #f1dfa8;padding:13px;border-radius:8px;margin-top:16px}.key-box strong{font-size:12px}.key-box code{font-size:13px;font-weight:800;overflow-wrap:anywhere}.key-box button{margin-left:auto}@media(max-width:800px){.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.workspace{padding:18px 12px}.workspace header{align-items:flex-start}.form-grid{grid-template-columns:1fr}.wide{grid-column:auto}.panel{padding:14px}.key-box button{margin-left:0}.workspace h1{font-size:24px}}
-      .product-gallery-admin{margin-top:18px;padding-top:18px;border-top:1px solid #e7edf3}.product-gallery-admin h3{margin:0 0 7px;font-size:13px;color:#10243a}.image-upload{display:inline-flex;align-items:center;gap:8px;margin:12px 0;padding:11px 15px;border:1px solid #f1d35a;border-radius:8px;background:#ffdf43;color:#10243a;font-size:12px;font-weight:800;cursor:pointer}.image-upload input{display:none}.product-image-admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-top:12px}.product-image-admin-grid>div{display:grid;gap:7px;min-width:0}.product-image-admin-grid img{width:100%;height:100px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0}.workspace .panel{border-radius:16px;box-shadow:0 8px 28px rgba(15,23,42,.045);transition:box-shadow .18s ease,border-color .18s ease}
+      .product-gallery-admin{margin-top:18px;padding-top:18px;border-top:1px solid #e7edf3}.product-gallery-admin h3{margin:0 0 7px;font-size:13px;color:#10243a}.image-upload{display:inline-flex;align-items:center;gap:8px;margin:12px 0;padding:11px 15px;border:1px solid #f1d35a;border-radius:8px;background:#ffdf43;color:#10243a;font-size:12px;font-weight:800;cursor:pointer}.image-upload input{display:none}.media-upload-actions{display:flex;gap:10px;flex-wrap:wrap}.media-progress progress{display:block;width:100%;height:8px;accent-color:#1674d1}.product-media-admin-item{display:grid;gap:5px}.product-media-admin-item video{width:100%;aspect-ratio:16/9;object-fit:contain;background:#10243a;border-radius:8px}.product-media-admin-item small{color:#66788b;font-size:10px;font-weight:800;letter-spacing:.6px}.product-image-admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-top:12px}.product-image-admin-grid>div{display:grid;gap:7px;min-width:0}.product-image-admin-grid img{width:100%;height:100px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0}.workspace .panel{border-radius:16px;box-shadow:0 8px 28px rgba(15,23,42,.045);transition:box-shadow .18s ease,border-color .18s ease}
       .workspace .panel:hover{border-color:#d4dfeb;box-shadow:0 12px 34px rgba(15,23,42,.065)}
       .workspace h1{font-weight:800;letter-spacing:-.045em}
       .workspace h2{font-weight:750;letter-spacing:-.025em}

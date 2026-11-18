@@ -62,6 +62,12 @@ export async function POST(request: NextRequest) {
           await del(blob.url);
           throw new Error("El producto ya no está disponible.");
         }
+        if (!blob.pathname.startsWith(`products/${payload.productId}/`)) {
+          await del(blob.url);
+          throw new Error("La ruta multimedia no pertenece al producto autorizado.");
+        }
+        const existing = await db.execute({ sql: "SELECT id FROM product_images WHERE url=? OR pathname=? LIMIT 1", args: [blob.url,blob.pathname] });
+        if (existing.rows.length) return;
         const count = await db.execute({ sql: "SELECT COUNT(*) AS total FROM product_images WHERE product_id=?", args: [payload.productId] });
         const mediaId = randomUUID();
         const sortOrder = Number(count.rows[0]?.total || 0);

@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         const sortOrder = Number(count.rows[0]?.total || 0);
         await db.batch([
           { sql: "INSERT INTO product_images (id,product_id,url,pathname,alt_text,sort_order,media_type) VALUES (?,?,?,?,?,?,?)", args: [mediaId,payload.productId,blob.url,blob.pathname,payload.altText || String(product.rows[0].name),sortOrder,payload.mediaType] },
-          { sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),payload.userId,payload.mediaType === "video" ? "product_video_uploaded" : "product_image_uploaded","product",payload.productId,JSON.stringify({ mediaId, contentType: blob.contentType, size: blob.size, pathname: blob.pathname })] }
+          { sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),payload.userId,payload.mediaType === "video" ? "product_video_uploaded" : "product_image_uploaded","product",payload.productId,JSON.stringify({ mediaId, contentType: blob.contentType, pathname: blob.pathname })] }
         ], "write");
       }
     });

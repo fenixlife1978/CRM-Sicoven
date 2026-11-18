@@ -148,7 +148,7 @@ export async function ensureSchema() {
     });
   } else {
     await db.execute({
-      sql: "INSERT INTO products (id,name,product_code,edition,version,description,download_url,download_label,status) VALUES (?,?,?,?,?,?,?,?, 'active')",
+      sql: "INSERT OR IGNORE INTO products (id,name,product_code,edition,version,description,download_url,download_label,status) VALUES (?,?,?,?,?,?,?,?, 'active')",
       args: ["prod-notariave","Notaría VE","NOTARIAVE_DESKTOP","Aplicación de escritorio para notarías","1.0.3","Sistema local de gestión notarial para Windows.","https://github.com/fenixlife1978/NotariaVE/releases/download/v1.0.3/Notaria.VE.Setup.1.0.3.exe","Descarga gratuita · Instalador Windows · v1.0.3"]
     });
   }

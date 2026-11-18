@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import {
   ShieldCheck,
@@ -228,41 +229,46 @@ export default function BuySoftwarePage() {
     };
   }, []);
 
-  // Load Catalog and recover last reported payment if exists
+  // Load only the product selected in the public catalog. Never fall back to another product.
   useEffect(() => {
-    fetch("/api/commercial-catalog", { cache: "no-store" })
+    const params = new URLSearchParams(window.location.search);
+    const requestedId = params.get("productId") || params.get("producto") || "";
+    if (!requestedId.trim()) {
+      setError("Selecciona un producto desde el catálogo mediante el botón «Ver planes». No se puede abrir una compra sin un producto asociado.");
+      setLoading(false);
+      return;
+    }
+
+    fetch(`/api/commercial-catalog?productId=${encodeURIComponent(requestedId)}`, { cache: "no-store" })
       .then(async (r) => {
         const d = await r.json();
-        if (!r.ok) throw new Error(typeof d.error === "string" ? d.error : "No se pudo cargar el catálogo comercial.");
-        if (r.ok) {
-          const prods: Product[] = Array.isArray(d.products) ? d.products : [];
-          const fetchedPlans: Plan[] = Array.isArray(d.plans) ? d.plans : [];
-          const params = new URLSearchParams(window.location.search);
-          const requestedId = params.get("productId") || params.get("producto") || "";
-          const matchedProduct = prods.find((p) => p.id === requestedId);
-          const initialProduct = matchedProduct || prods[0];
-          setProducts(prods);
-          setPlans(fetchedPlans);
-          setLockedProductId(matchedProduct?.id || "");
-          setProductId(initialProduct?.id || "");
-          const initialProductPlans = fetchedPlans.filter((p) => p.product_id === initialProduct?.id);
-          const initialPlan = initialProductPlans[0];
-          setPlanId(initialPlan?.id || "");
-          setAmount(initialPlan ? String(initialPlan.price_amount) : "");
-          const initialBanks = Array.isArray(d.banks) ? d.banks : [];
-          setBanks(initialBanks);
-          setWhatsappAdminPhone(d.whatsappAdminPhone || "04125773996");
-
-          if (initialBanks[0]) setDestinationBankId(initialBanks[0].id);
+        if (!r.ok) throw new Error(typeof d.error === "string" ? d.error : "No se pudo cargar la oferta de este producto.");
+        const prods: Product[] = Array.isArray(d.products) ? d.products : [];
+        const fetchedPlans: Plan[] = Array.isArray(d.plans) ? d.plans : [];
+        const selected = prods.find((p) => p.id === requestedId);
+        if (!selected || prods.length !== 1 || fetchedPlans.some((p) => p.product_id !== requestedId)) {
+          throw new Error("La oferta recibida no corresponde exclusivamente al producto seleccionado. Regresa al catálogo e inténtalo nuevamente.");
         }
+        setProducts([selected]);
+        setPlans(fetchedPlans);
+        setLockedProductId(selected.id);
+        setProductId(selected.id);
+        const initialPlan = fetchedPlans[0];
+        setPlanId(initialPlan?.id || "");
+        setAmount(initialPlan ? String(initialPlan.price_amount) : "");
+        const initialBanks = Array.isArray(d.banks) ? d.banks : [];
+        setBanks(initialBanks);
+        setWhatsappAdminPhone(d.whatsappAdminPhone || "04125773996");
+        if (initialBanks[0]) setDestinationBankId(initialBanks[0].id);
       })
-      .catch(() => {
+      .catch((err) => {
         setProducts([]);
         setPlans([]);
         setProductId("");
+        setLockedProductId("");
         setPlanId("");
         setAmount("");
-        setError("No se pudo cargar el catálogo comercial. Actualiza la página antes de reportar un pago.");
+        setError(err instanceof Error ? err.message : "No se pudo cargar la oferta comercial. Regresa al catálogo.");
         setBanks([]);
         setDestinationBankId("");
       })
@@ -838,6 +844,17 @@ export default function BuySoftwarePage() {
               <div className="py-12 text-center space-y-2">
                 <RefreshCw className="w-6 h-6 text-blue-600 animate-spin mx-auto" />
                 <p className="text-xs text-slate-500 font-medium">Cargando formulario comercial…</p>
+              </div>
+            ) : !selectedProduct ? (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-5 text-center space-y-3" role="alert">
+                <AlertCircle className="w-7 h-7 text-amber-700 mx-auto" />
+                <h3 className="font-bold text-sm text-amber-950">No hay un producto seleccionado</h3>
+                <p className="text-xs leading-relaxed text-amber-900">
+                  Este formulario solo se abre desde «Ver planes» de un producto. Regresa al catálogo y selecciona el producto que deseas adquirir.
+                </p>
+                <Link href="/" className="inline-flex items-center justify-center rounded-lg bg-[#f4c542] px-4 py-2 text-xs font-extrabold text-[#14213d] hover:bg-[#eab72f]">
+                  Volver al catálogo
+                </Link>
               </div>
             ) : (
               <form onSubmit={submit} className="mt-4 space-y-4">

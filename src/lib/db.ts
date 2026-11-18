@@ -278,6 +278,44 @@ export async function ensureSchema() {
       args: [siferProductId]
     });
   }
+  // Retirar el registro duplicado antiguo de SIFER360 Licorería.
+  // Solo se elimina físicamente si no existen licencias ni reportes de pago asociados.
+  // El producto canónico prod-sifer360-licoreria permanece intacto.
+  const duplicateSiferId = "01c45af8-7061-4035-945b-88707bd86825";
+  const duplicateSifer = await db.execute({
+    sql: "SELECT id FROM products WHERE id=? LIMIT 1",
+    args: [duplicateSiferId]
+  });
+  if (duplicateSifer.rows.length) {
+    const [duplicateLicenses, duplicateReports] = await Promise.all([
+      db.execute({ sql: "SELECT COUNT(*) AS count FROM licenses WHERE product_id=?", args: [duplicateSiferId] }),
+      db.execute({ sql: "SELECT COUNT(*) AS count FROM payment_reports WHERE product_id=?", args: [duplicateSiferId] })
+    ]);
+    const duplicatePlans = await db.execute({
+      sql: "SELECT id FROM commercial_plans WHERE product_id=?",
+      args: [duplicateSiferId]
+    });
+    const planIds = duplicatePlans.rows.map((row) => String(row.id));
+    let planReports = 0;
+    for (const planId of planIds) {
+      const result = await db.execute({
+        sql: "SELECT COUNT(*) AS count FROM payment_reports WHERE plan_id=?",
+        args: [planId]
+      });
+      planReports += Number(result.rows[0]?.count || 0);
+    }
+    if (Number(duplicateLicenses.rows[0]?.count || 0) === 0 &&
+        Number(duplicateReports.rows[0]?.count || 0) === 0 &&
+        planReports === 0) {
+      await db.batch([
+        { sql: "DELETE FROM product_images WHERE product_id=?", args: [duplicateSiferId] },
+        { sql: "DELETE FROM commercial_plan_features WHERE plan_id IN (SELECT id FROM commercial_plans WHERE product_id=?)", args: [duplicateSiferId] },
+        { sql: "DELETE FROM commercial_plans WHERE product_id=?", args: [duplicateSiferId] },
+        { sql: "DELETE FROM products WHERE id=?", args: [duplicateSiferId] }
+      ], "write");
+    }
+  }
+
   const siferPlanCount = await db.execute({ sql: "SELECT COUNT(*) AS count FROM commercial_plans WHERE product_id=?", args: [siferProductId] });
   if (Number(siferPlanCount.rows[0]?.count || 0) === 0) {
     await db.batch([

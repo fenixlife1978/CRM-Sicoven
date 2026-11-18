@@ -158,7 +158,7 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
         if (!allowed.includes(file.type)) throw new Error("Formato no compatible: " + file.name + ". Usa JPG, PNG, WebP, AVIF, MP4, WebM o MOV.");
         if (!file.size || file.size > maxBytes) throw new Error(file.name + " supera el máximo permitido de " + (mediaType === "video" ? "200 MB" : "15 MB") + ".");
         const safeName = file.name.toLowerCase().replace(/[^a-z0-9.-]+/g, "-").slice(-90) || (mediaType === "video" ? "video.mp4" : "imagen");
-        await upload("products/" + productId + "/" + crypto.randomUUID() + "-" + safeName, file, {
+        const uploadedBlob = await upload("products/" + productId + "/" + crypto.randomUUID() + "-" + safeName, file, {
           access: "public",
           handleUploadUrl: "/api/products/" + encodeURIComponent(productId) + "/media/upload",
           clientPayload: JSON.stringify({ productId, mediaType, altText: file.name.slice(0, 180) }),
@@ -166,12 +166,12 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
           onUploadProgress: ({ percentage }) => setMediaProgress(Math.round(percentage))
         });
         let latest: ProductImage[] = [];
-        for (let attempt = 0; attempt < 8; attempt++) {
+        for (let attempt = 0; attempt < 20; attempt++) {
           const response = await fetch("/api/products/" + encodeURIComponent(productId) + "/images", { cache: "no-store" });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "No se pudo actualizar la galería.");
           latest = Array.isArray(result.images) ? result.images as ProductImage[] : [];
-          if (latest.some(item => item.url.includes(safeName.split(".")[0]))) break;
+          if (latest.some(item => item.url === uploadedBlob.url)) break;
           await new Promise(resolve => setTimeout(resolve, 500));
         }
         setProductImages(latest);

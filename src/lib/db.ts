@@ -135,6 +135,24 @@ export async function ensureSchema() {
       ORDER BY created_at, id LIMIT 1)
       AND NOT EXISTS (SELECT 1 FROM products WHERE product_code = 'SICOVEN_DESKTOP')`);
   await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS products_product_code_unique ON products(product_code) WHERE product_code IS NOT NULL AND TRIM(product_code) <> ''");
+
+  // Publicar Notaría VE en el catálogo de descargas con su instalador oficial estable.
+  // Migración idempotente: reutiliza cualquier registro previo del mismo producto.
+  const notariaProduct = await db.execute({
+    sql: "SELECT id FROM products WHERE product_code='NOTARIAVE_DESKTOP' OR LOWER(TRIM(name)) IN ('notariave','notaría ve','notaria ve') ORDER BY CASE WHEN product_code='NOTARIAVE_DESKTOP' THEN 0 ELSE 1 END, created_at, id LIMIT 1"
+  });
+  if (notariaProduct.rows.length) {
+    await db.execute({
+      sql: "UPDATE products SET name='Notaría VE',product_code='NOTARIAVE_DESKTOP',edition='Aplicación de escritorio para notarías',version='1.0.3',description=COALESCE(NULLIF(description,''),'Sistema local de gestión notarial para Windows.'),download_url='https://github.com/fenixlife1978/NotariaVE/releases/download/v1.0.3/Notaria.VE.Setup.1.0.3.exe',download_label='Descarga gratuita · Instalador Windows · v1.0.3',status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?",
+      args: [String(notariaProduct.rows[0].id)]
+    });
+  } else {
+    await db.execute({
+      sql: "INSERT INTO products (id,name,product_code,edition,version,description,download_url,download_label,status) VALUES (?,?,?,?,?,?,?,?, 'active')",
+      args: ["prod-notariave","Notaría VE","NOTARIAVE_DESKTOP","Aplicación de escritorio para notarías","1.0.3","Sistema local de gestión notarial para Windows.","https://github.com/fenixlife1978/NotariaVE/releases/download/v1.0.3/Notaria.VE.Setup.1.0.3.exe","Descarga gratuita · Instalador Windows · v1.0.3"]
+    });
+  }
+
   await db.execute("CREATE TRIGGER IF NOT EXISTS products_assign_product_code\nAFTER INSERT ON products\nWHEN NEW.product_code IS NULL OR TRIM(NEW.product_code) = ''\nBEGIN\n  UPDATE products SET product_code = CASE\n    WHEN LOWER(TRIM(NEW.name)) LIKE 'sicoven%'\n      AND NOT EXISTS (SELECT 1 FROM products WHERE product_code = 'SICOVEN_DESKTOP')\n    THEN 'SICOVEN_DESKTOP'\n    ELSE 'PRODUCT_' || UPPER(REPLACE(NEW.id, '-', '_'))\n  END\n  WHERE id = NEW.id;\nEND");
   const activationColumns = await db.execute("PRAGMA table_info(activations)");
   const existingActivationColumns = new Set(activationColumns.rows.map((column) => String(column.name)));

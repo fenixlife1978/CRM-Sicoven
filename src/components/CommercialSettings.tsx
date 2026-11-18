@@ -10,7 +10,8 @@ type Bank={id:string;bank_code:string;bank_name:string;identity_document:string;
 export default function CommercialSettings(){
  const [products,setProducts]=useState<Product[]>([]),[plans,setPlans]=useState<Plan[]>([]),[banks,setBanks]=useState<Bank[]>([]);
  const [whatsappAdminPhone,setWhatsappAdminPhone]=useState("04125773996");
- const [productId,setProductId]=useState(""),[planName,setPlanName]=useState(""),[planDescription,setPlanDescription]=useState(""),[price,setPrice]=useState(""),[currency,setCurrency]=useState("USD"),[duration,setDuration]=useState(""),[max,setMax]=useState("1");\n const [editingPlanId,setEditingPlanId]=useState<string|null>(null),[featureLines,setFeatureLines]=useState<string[]>([""]);
+ const [productId,setProductId]=useState(""),[planName,setPlanName]=useState(""),[planDescription,setPlanDescription]=useState(""),[price,setPrice]=useState(""),[currency,setCurrency]=useState("USD"),[duration,setDuration]=useState(""),[max,setMax]=useState("1");
+ const [editingPlanId,setEditingPlanId]=useState<string|null>(null),[featureLines,setFeatureLines]=useState<string[]>([""]);
  const [bankCode,setBankCode]=useState("BDV"),[identity,setIdentity]=useState(""),[phone,setPhone]=useState(""),[account,setAccount]=useState(""),[editingBankId,setEditingBankId]=useState<string|null>(null);
  const [error,setError]=useState(""),[success,setSuccess]=useState(""),[busy,setBusy]=useState(false);
  const load=useCallback(async()=>{const r=await fetch("/api/commercial-settings",{cache:"no-store"});const d=await r.json();if(!r.ok)throw new Error(d.error||"No se pudo cargar.");setProducts(d.products||[]);setPlans(d.plans||[]);setBanks(d.banks||[]);setWhatsappAdminPhone(d.whatsappAdminPhone||"04125773996");if(d.products?.[0])setProductId(current=>current||d.products[0].id);},[]);

@@ -844,6 +844,17 @@ export default function BuySoftwarePage() {
                 <RefreshCw className="w-6 h-6 text-blue-600 animate-spin mx-auto" />
                 <p className="text-xs text-slate-500 font-medium">Cargando formulario comercial…</p>
               </div>
+            ) : !selectedProduct ? (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-5 text-center space-y-3" role="alert">
+                <AlertCircle className="w-7 h-7 text-amber-700 mx-auto" />
+                <h3 className="font-bold text-sm text-amber-950">No hay un producto seleccionado</h3>
+                <p className="text-xs leading-relaxed text-amber-900">
+                  Este formulario solo se abre desde «Ver planes» de un producto. Regresa al catálogo y selecciona el producto que deseas adquirir.
+                </p>
+                <a href="/" className="inline-flex items-center justify-center rounded-lg bg-[#f4c542] px-4 py-2 text-xs font-extrabold text-[#14213d] hover:bg-[#eab72f]">
+                  Volver al catálogo
+                </a>
+              </div>
             ) : (
               <form onSubmit={submit} className="mt-4 space-y-4">
                 {/* 1. Datos del cliente (nuevo cliente) */}

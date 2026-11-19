@@ -15,6 +15,7 @@ type PublicProduct = {
   public_review: string | null;
   download_url: string | null;
   download_label: string | null;
+  icon_url: string | null;
   images: { id: string; url: string; alt_text: string | null; media_type: "image" | "video" }[];
 };
 
@@ -27,7 +28,7 @@ export default async function PublicCatalogPage() {
   try {
     await bootstrapDatabase();
     const result = await getDb().execute({
-      sql: "SELECT id,name,product_code,edition,version,description,slogan,public_review,download_url,download_label FROM products WHERE status='active' ORDER BY name LIMIT 100"
+      sql: "SELECT id,name,product_code,edition,version,description,slogan,public_review,download_url,download_label,icon_url FROM products WHERE status='active' ORDER BY name LIMIT 100"
     });
     products = result.rows.map((row) => ({
       id: String(row.id),
@@ -40,6 +41,7 @@ export default async function PublicCatalogPage() {
       public_review: row.public_review == null ? null : String(row.public_review),
       download_url: row.download_url == null ? null : String(row.download_url),
       download_label: row.download_label == null ? null : String(row.download_label),
+      icon_url: row.icon_url == null ? null : String(row.icon_url),
       images: []
     }));
     // La última Release oficial de SIFER360 mantiene actualizado el instalador del catálogo sin edición manual.
@@ -143,7 +145,7 @@ export default async function PublicCatalogPage() {
             {products.map((product) => (
               <article className="catalog-card" key={product.id}>
                 <div className="catalog-card-top">
-                  <div className="catalog-product-mark" aria-hidden="true">{product.name.trim().slice(0, 1).toUpperCase()}</div>
+                  {product.icon_url ? <img className="catalog-product-mark-image" src={product.icon_url} alt={product.name} /> : <div className="catalog-product-mark" aria-hidden="true">{product.name.trim().slice(0, 1).toUpperCase()}</div>}
                   <span className="catalog-product-code">EFAS SOFTWARE</span>
                 </div>
                 <ProductGallery images={product.images} productName={product.name} />

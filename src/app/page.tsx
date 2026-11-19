@@ -15,6 +15,7 @@ type PublicProduct = {
   public_review: string | null;
   download_url: string | null;
   download_label: string | null;
+  icon_url: string | null;
   images: { id: string; url: string; alt_text: string | null; media_type: "image" | "video" }[];
 };
 
@@ -27,7 +28,7 @@ export default async function PublicCatalogPage() {
   try {
     await bootstrapDatabase();
     const result = await getDb().execute({
-      sql: "SELECT id,name,product_code,edition,version,description,slogan,public_review,download_url,download_label FROM products WHERE status='active' ORDER BY name LIMIT 100"
+      sql: "SELECT id,name,product_code,edition,version,description,slogan,public_review,download_url,download_label,icon_url FROM products WHERE status='active' ORDER BY name LIMIT 100"
     });
     products = result.rows.map((row) => ({
       id: String(row.id),
@@ -40,6 +41,7 @@ export default async function PublicCatalogPage() {
       public_review: row.public_review == null ? null : String(row.public_review),
       download_url: row.download_url == null ? null : String(row.download_url),
       download_label: row.download_label == null ? null : String(row.download_label),
+      icon_url: row.icon_url == null ? null : String(row.icon_url),
       images: []
     }));
     // La última Release oficial de SIFER360 mantiene actualizado el instalador del catálogo sin edición manual.
@@ -143,7 +145,7 @@ export default async function PublicCatalogPage() {
             {products.map((product) => (
               <article className="catalog-card" key={product.id}>
                 <div className="catalog-card-top">
-                  <div className="catalog-product-mark" aria-hidden="true">{product.name.trim().slice(0, 1).toUpperCase()}</div>
+                  {product.icon_url ? <img className="catalog-product-mark-image" src={product.icon_url} alt={product.name} /> : <div className="catalog-product-mark" aria-hidden="true">{product.name.trim().slice(0, 1).toUpperCase()}</div>}
                   <span className="catalog-product-code">EFAS SOFTWARE</span>
                 </div>
                 <ProductGallery images={product.images} productName={product.name} />
@@ -206,6 +208,7 @@ export default async function PublicCatalogPage() {
         .catalog-card:hover{transform:translateY(-3px);box-shadow:0 14px 32px rgba(16,36,58,.09)}
         .catalog-card-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:22px 24px 0}
         .catalog-product-mark{width:52px;height:52px;display:grid;place-items:center;border-radius:13px;background:#10243a;color:#fff;font-size:25px;font-weight:800;box-shadow:inset 0 -3px 0 #f2bd35}
+        .catalog-product-mark-image{width:52px;height:52px;display:block;object-fit:contain;border-radius:13px;background:#fff;padding:4px;border:1px solid #e2e8f0}
         .catalog-product-code{max-width:65%;overflow-wrap:anywhere;border:1px solid #e2e8f0;background:#f8fafc;border-radius:6px;padding:6px 9px;color:#64748b;font:700 9px/1.3 ui-monospace,monospace;letter-spacing:.6px}
         .catalog-card-content{flex:1;padding:20px 24px 24px}
         .catalog-slogan{margin:10px 0 0;color:#0b78a5;font-size:15px;font-weight:800;line-height:1.45}

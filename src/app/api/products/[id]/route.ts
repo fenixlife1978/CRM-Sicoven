@@ -32,8 +32,10 @@ export async function PATCH(request: NextRequest, context: Context) {
     const slogan = field(data.slogan, 180);
     const publicReview = field(data.publicReview, 1200);
     const downloadLabel = field(data.downloadLabel, 120);
+    const logoUrl = field(data.logoUrl, 2000);
+    const iconUrl = field(data.iconUrl, 2000);
     const db = getDb();
-    const result = await db.execute({ sql: "UPDATE products SET name=?,edition=?,version=?,description=?,slogan=?,public_review=?,download_url=?,download_label=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='active'", args: [name, edition, version, description, slogan, publicReview, downloadUrl, downloadLabel, id] });
+    const result = await db.execute({ sql: "UPDATE products SET name=?,edition=?,version=?,description=?,slogan=?,public_review=?,download_url=?,download_label=?,logo_url=COALESCE(?,logo_url),icon_url=COALESCE(?,icon_url),updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='active'", args: [name, edition, version, description, slogan, publicReview, downloadUrl, downloadLabel, logoUrl, iconUrl, id] });
     if (!result.rowsAffected) return NextResponse.json({ error: "Producto no encontrado o inactivo." }, { status: 404 });
     await db.execute({ sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(), session.sub, "product_updated", "product", id, JSON.stringify({ name, edition, version })] });
     return NextResponse.json({ ok: true, id });

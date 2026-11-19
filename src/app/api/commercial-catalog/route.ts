@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     await bootstrapDatabase();
     const db = getDb();
     const productResult = await db.execute({
-      sql: "SELECT id,name,product_code,edition,version,description FROM products WHERE id=? AND status='active' LIMIT 1",
+      sql: "SELECT id,name,product_code,edition,version,description,logo_url FROM products WHERE id=? AND status='active' LIMIT 1",
       args: [productId]
     });
 

@@ -86,6 +86,7 @@ type Product = {
   edition?: string | null;
   version?: string | null;
   description?: string | null;
+  logo_url?: string | null;
 };
 
 type Plan = {
@@ -679,7 +680,9 @@ export default function BuySoftwarePage() {
             {/* Identidad comercial dinámica por producto */}
             <div className="bg-white border border-[#d8e2eb] rounded-xl p-4 shadow-2xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                {selectedProduct?.name?.toLowerCase().includes("sicoven") ? (
+                {selectedProduct?.logo_url ? (
+                  <img src={selectedProduct.logo_url} alt={selectedProduct.name || "Logo del producto"} className="h-12 sm:h-14 w-auto max-w-[280px] object-contain" />
+                ) : selectedProduct?.name?.toLowerCase().includes("sicoven") ? (
                   <img src="/sicoven-logo.svg" alt="SICOVEN" className="h-12 sm:h-14 w-auto object-contain max-w-[280px]" />
                 ) : (
                   <div className="min-w-0">

@@ -71,10 +71,15 @@ export async function POST(request: NextRequest) {
         const count = await db.execute({ sql: "SELECT COUNT(*) AS total FROM product_images WHERE product_id=?", args: [payload.productId] });
         const mediaId = randomUUID();
         const sortOrder = Number(count.rows[0]?.total || 0);
-        await db.batch([
-          { sql: "INSERT INTO product_images (id,product_id,url,pathname,alt_text,sort_order,media_type) VALUES (?,?,?,?,?,?,?)", args: [mediaId,payload.productId,blob.url,blob.pathname,payload.altText || String(product.rows[0].name),sortOrder,payload.mediaType] },
-          { sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),payload.userId,payload.mediaType === "video" ? "product_video_uploaded" : "product_image_uploaded","product",payload.productId,JSON.stringify({ mediaId, contentType: blob.contentType, pathname: blob.pathname })] }
-        ], "write");
+        try {
+          await db.batch([
+            { sql: "INSERT INTO product_images (id,product_id,url,pathname,alt_text,sort_order,media_type) VALUES (?,?,?,?,?,?,?)", args: [mediaId,payload.productId,blob.url,blob.pathname,payload.altText || String(product.rows[0].name),sortOrder,payload.mediaType] },
+            { sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),payload.userId,payload.mediaType === "video" ? "product_video_uploaded" : "product_image_uploaded","product",payload.productId,JSON.stringify({ mediaId, contentType: blob.contentType, pathname: blob.pathname })] }
+          ], "write");
+        } catch (error) {
+          await del(blob.url);
+          throw error;
+        }
       }
     });
     return NextResponse.json(result, { headers: noStore });

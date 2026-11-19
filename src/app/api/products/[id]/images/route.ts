@@ -86,3 +86,31 @@ export async function DELETE(request: NextRequest, context: Context) {
     return NextResponse.json({ error: "No se pudo eliminar la imagen." }, { status: 503, headers: noStore });
   }
 }
+
+export async function PUT(request: NextRequest, context: Context) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "No autenticado." }, { status: 401, headers: noStore });
+  if (session.role !== "admin") return NextResponse.json({ error: "Solo el administrador puede ordenar la galería." }, { status: 403, headers: noStore });
+  try {
+    await bootstrapDatabase();
+    const { id } = await context.params;
+    const body = await request.json() as { imageIds?: unknown };
+    if (!Array.isArray(body.imageIds) || body.imageIds.length > 100 || !body.imageIds.every(value => typeof value === "string")) {
+      return NextResponse.json({ error: "Orden de galería inválido." }, { status: 400, headers: noStore });
+    }
+    const db = getDb();
+    const current = await db.execute({ sql: "SELECT id FROM product_images WHERE product_id=? ORDER BY sort_order,created_at", args: [id] });
+    const expected = current.rows.map(row => String(row.id));
+    const received = body.imageIds as string[];
+    if (expected.length !== received.length || new Set(received).size !== received.length || expected.some(value => !received.includes(value))) {
+      return NextResponse.json({ error: "La galería cambió. Actualiza la lista e inténtalo de nuevo." }, { status: 409, headers: noStore });
+    }
+    await db.batch(received.map((imageId, index) => ({
+      sql: "UPDATE product_images SET sort_order=? WHERE id=? AND product_id=?",
+      args: [index, imageId, id]
+    })), "write");
+    return NextResponse.json({ ok: true }, { headers: noStore });
+  } catch {
+    return NextResponse.json({ error: "No se pudo guardar el orden de la galería." }, { status: 503, headers: noStore });
+  }
+}

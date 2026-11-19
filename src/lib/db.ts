@@ -141,6 +141,8 @@ export async function ensureSchema() {
   if (!existingProductColumns.has("public_review")) await db.execute("ALTER TABLE products ADD COLUMN public_review TEXT");
   if (!existingProductColumns.has("download_url")) await db.execute("ALTER TABLE products ADD COLUMN download_url TEXT");
   if (!existingProductColumns.has("download_label")) await db.execute("ALTER TABLE products ADD COLUMN download_label TEXT");
+  if (!existingProductColumns.has("logo_url")) await db.execute("ALTER TABLE products ADD COLUMN logo_url TEXT");
+  if (!existingProductColumns.has("icon_url")) await db.execute("ALTER TABLE products ADD COLUMN icon_url TEXT");
   await db.execute(`UPDATE products SET product_code = 'PRODUCT_' || UPPER(REPLACE(id, '-', '_'))
     WHERE product_code IS NULL OR TRIM(product_code) = ''`);
   await db.execute(`UPDATE products SET product_code = 'SICOVEN_DESKTOP'

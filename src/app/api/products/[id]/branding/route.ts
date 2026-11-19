@@ -35,8 +35,10 @@ export async function POST(request: NextRequest, context: Context) {
     const column = kind === "logo" ? "logo_url" : "icon_url";
     const oldUrl = product.rows[0][column] == null ? "" : String(product.rows[0][column]);
     try {
-      await db.execute({ sql: `UPDATE products SET ${column}=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`, args: [blob.url,id] });
-      await db.execute({ sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),session.sub,kind === "logo" ? "product_logo_updated" : "product_icon_updated","product",id,JSON.stringify({ pathname: blob.pathname, contentType: file.type, size: file.size })] });
+      await db.batch([
+        { sql: `UPDATE products SET ${column}=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`, args: [blob.url,id] },
+        { sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),session.sub,kind === "logo" ? "product_logo_updated" : "product_icon_updated","product",id,JSON.stringify({ pathname: blob.pathname, contentType: file.type, size: file.size })] }
+      ], "write");
     } catch (error) {
       await del(blob.url);
       throw error;
@@ -63,9 +65,11 @@ export async function DELETE(request: NextRequest, context: Context) {
     const product = await db.execute({ sql: `SELECT ${column} FROM products WHERE id=? AND status='active' LIMIT 1`, args: [id] });
     if (!product.rows.length) return NextResponse.json({ error: "Producto no encontrado o inactivo." }, { status: 404, headers: noStore });
     const oldUrl = product.rows[0][column] == null ? "" : String(product.rows[0][column]);
-    await db.execute({ sql: `UPDATE products SET ${column}=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?`, args: [id] });
-    if (oldUrl) { try { await del(oldUrl); } catch { /* The public reference is already removed. */ } }
-    await db.execute({ sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),session.sub,kind === "logo" ? "product_logo_deleted" : "product_icon_deleted","product",id,JSON.stringify({ kind })] });
+    await db.batch([
+      { sql: `UPDATE products SET ${column}=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?`, args: [id] },
+      { sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),session.sub,kind === "logo" ? "product_logo_deleted" : "product_icon_deleted","product",id,JSON.stringify({ kind })] }
+    ], "write");
+    if (oldUrl) { try { await del(oldUrl); } catch { /* The database reference is already removed. */ } }
     return NextResponse.json({ ok: true }, { headers: noStore });
   } catch {
     return NextResponse.json({ error: "No se pudo eliminar la imagen." }, { status: 503, headers: noStore });

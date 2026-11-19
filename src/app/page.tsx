@@ -19,6 +19,10 @@ type PublicProduct = {
   images: { id: string; url: string; alt_text: string | null; media_type: "image" | "video" }[];
 };
 
+function normalizeProductName(value: string) {
+  return value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function PublicCatalogPage() {
@@ -28,7 +32,7 @@ export default async function PublicCatalogPage() {
   try {
     await bootstrapDatabase();
     const result = await getDb().execute({
-      sql: "SELECT id,name,product_code,edition,version,description,slogan,public_review,download_url,download_label,icon_url FROM products WHERE status='active' ORDER BY name LIMIT 100"
+      sql: "SELECT id,name,product_code,edition,version,description,slogan,public_review,download_url,download_label,icon_url FROM products WHERE status='active' ORDER BY CASE WHEN product_code IN ('NOTARIAVE_DESKTOP','SIFER360_LICORERIA') THEN 0 ELSE 1 END,name,created_at,id LIMIT 100"
     });
     products = result.rows.map((row) => ({
       id: String(row.id),
@@ -44,56 +48,49 @@ export default async function PublicCatalogPage() {
       icon_url: row.icon_url == null ? null : String(row.icon_url),
       images: []
     }));
-    // La última Release oficial de SIFER360 mantiene actualizado el instalador del catálogo sin edición manual.
+    // Sincronizar las fichas de escritorio con sus Releases oficiales estables.
     for (const product of products) {
-      if (product.product_code !== "SIFER360_LICORERIA") continue;
+      const isNotaria = product.product_code === "NOTARIAVE_DESKTOP" || normalizeProductName(product.name) === "notariave";
+      const isSifer = product.product_code === "SIFER360_LICORERIA" || normalizeProductName(product.name) === "sifer360licoreria";
+      if (!isNotaria && !isSifer) continue;
+      const ownerRepo = isNotaria ? "NotariaVE" : "Sifer360-licoreria";
       try {
-        const response = await fetch("https://api.github.com/repos/fenixlife1978/Sifer360-licoreria/releases/latest", {
-          headers: { Accept: "application/vnd.github+json", "User-Agent": "CRM-SICOVEN-Catalog" },
-          next: { revalidate: 300 },
-          signal: AbortSignal.timeout(4000)
-        });
-        if (response.ok) {
-          const release = await response.json() as { tag_name?: string; assets?: Array<{ name?: string; browser_download_url?: string }> };
-          const installer = (release.assets || []).find(asset => /SIFER360-.*-Instalador\.exe$/i.test(String(asset.name || "")));
-          if (installer?.browser_download_url) {
-            product.version = String(release.tag_name || "").replace(/^v/i, "") || product.version;
-            product.download_url = installer.browser_download_url;
-            product.download_label = "Descarga gratuita · Instalador Windows " + product.version;
-          }
-        }
-      } catch {
-        // Si GitHub no responde, se conserva la última URL guardada en el CRM.
-      }
-    }
-    // SICOVEN descarga siempre la última Release estable publicada en el repositorio oficial.
-    // Los borradores y prereleases no aparecen en /releases/latest.
-    for (const product of products) {
-      // Algunas fichas antiguas conservan un código genérico asignado antes de
-      // introducir SICOVEN_DESKTOP. El nombre permite reconocer esa ficha sin
-      // depender de una migración manual de la base de datos de producción.
-      const isSicoven = product.product_code === "SICOVEN_DESKTOP"
-        || product.name.trim().toLowerCase() === "sicoven";
-      if (!isSicoven) continue;
-      try {
-        const response = await fetch("https://api.github.com/repos/fenixlife1978/sicoven-descargas/releases/latest", {
+        const response = await fetch(`https://api.github.com/repos/fenixlife1978/${ownerRepo}/releases/latest`, {
           headers: { Accept: "application/vnd.github+json", "User-Agent": "CRM-SICOVEN-Catalog" },
           cache: "no-store",
           signal: AbortSignal.timeout(10000)
         });
         if (response.ok) {
           const release = await response.json() as { tag_name?: string; assets?: Array<{ name?: string; browser_download_url?: string }> };
-          const installer = (release.assets || []).find(asset => /^SICOVEN-Setup-.*-x64\.exe$/i.test(String(asset.name || "")));
+          const installerPattern = isNotaria
+            ? /^Notaria\.VE\.Setup\.\d+\.\d+\.\d+\.exe$/i
+            : /^SIFER360-\d+\.\d+\.\d+-Instalador\.exe$/i;
+          const installer = (release.assets || []).find(asset => installerPattern.test(String(asset.name || "")));
           if (installer?.browser_download_url) {
             product.version = String(release.tag_name || "").replace(/^v/i, "") || product.version;
             product.download_url = installer.browser_download_url;
-            product.download_label = "Actualización gratuita · SICOVEN Windows x64 · v" + product.version;
+            product.download_label = "Descarga gratuita · Instalador Windows · v" + product.version;
           }
         }
       } catch {
-        // Si GitHub no responde o aún no hay Release estable, se conserva la URL guardada en el CRM.
+        // Mantener la última URL persistida si GitHub no responde temporalmente.
       }
     }
+
+    // Mostrar una sola ficha por producto aunque existan registros históricos duplicados.
+    const seenDesktopFamilies = new Set<string>();
+    products = products.filter(product => {
+      const name = normalizeProductName(product.name);
+      const family = product.product_code === "NOTARIAVE_DESKTOP" || name === "notariave"
+        ? "NOTARIAVE_DESKTOP"
+        : product.product_code === "SIFER360_LICORERIA" || name === "sifer360licoreria"
+          ? "SIFER360_LICORERIA"
+          : null;
+      if (!family) return true;
+      if (seenDesktopFamilies.has(family)) return false;
+      seenDesktopFamilies.add(family);
+      return true;
+    });
     if (products.length) {
       const images = await getDb().execute({ sql: "SELECT id,product_id,url,alt_text,media_type FROM product_images WHERE product_id IN (" + products.map(() => "?").join(",") + ") ORDER BY sort_order,created_at", args: products.map((product) => product.id) });
       products = products.map((product) => ({ ...product, images: images.rows.filter((image) => String(image.product_id) === product.id).map((image) => ({ id: String(image.id), url: String(image.url), alt_text: image.alt_text == null ? null : String(image.alt_text), media_type: String(image.media_type || "image") === "video" ? "video" : "image" })) }));

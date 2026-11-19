@@ -60,7 +60,7 @@ function downloadCertificate(certificate: Record<string, unknown>) {
   page.document.close();
 }
 function normalizeProductName(value: string) {
-  return value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 function uniqueDesktopProducts(records: RecordItem[]) {

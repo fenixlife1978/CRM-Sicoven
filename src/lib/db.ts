@@ -262,6 +262,12 @@ export async function ensureSchema() {
     await db.execute("UPDATE products SET name = 'Sicoven', edition = 'Sistema contable' WHERE id = 'prod-sicoven'");
   }
 
+  // Mantener el catálogo comercial de SICOVEN sincronizado con la última versión estable publicada.
+  // Se actualiza el producto canónico sin alterar licencias, planes ni registros históricos.
+  await db.execute({
+    sql: "UPDATE products SET name='Sicoven',edition='Sistema contable',version='1.0.37',download_url='https://github.com/fenixlife1978/sicoven-descargas/releases/download/v1.0.37/SICOVEN-Setup-1.0.37-x64.exe',download_label='Descarga gratuita · Instalador Windows · v1.0.37',status='active',updated_at=CURRENT_TIMESTAMP WHERE product_code='SICOVEN_DESKTOP' OR id='prod-sicoven'"
+  });
+
   // Producto SIFER360 LICORERÍA: independiente de SICOVEN y con planes comerciales propios.
   const siferProductResult = await db.execute({
     sql: "SELECT id FROM products WHERE id=? OR product_code=? OR LOWER(TRIM(name)) LIKE 'sifer360%' ORDER BY CASE WHEN product_code=? THEN 0 WHEN id=? THEN 1 ELSE 2 END,created_at,id LIMIT 1",

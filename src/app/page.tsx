@@ -208,6 +208,7 @@ export default async function PublicCatalogPage() {
         .catalog-card:hover{transform:translateY(-3px);box-shadow:0 14px 32px rgba(16,36,58,.09)}
         .catalog-card-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:22px 24px 0}
         .catalog-product-mark{width:52px;height:52px;display:grid;place-items:center;border-radius:13px;background:#10243a;color:#fff;font-size:25px;font-weight:800;box-shadow:inset 0 -3px 0 #f2bd35}
+        .catalog-product-mark-image{width:52px;height:52px;display:block;object-fit:contain;border-radius:13px;background:#fff;padding:4px;border:1px solid #e2e8f0}
         .catalog-product-code{max-width:65%;overflow-wrap:anywhere;border:1px solid #e2e8f0;background:#f8fafc;border-radius:6px;padding:6px 9px;color:#64748b;font:700 9px/1.3 ui-monospace,monospace;letter-spacing:.6px}
         .catalog-card-content{flex:1;padding:20px 24px 24px}
         .catalog-slogan{margin:10px 0 0;color:#0b78a5;font-size:15px;font-weight:800;line-height:1.45}

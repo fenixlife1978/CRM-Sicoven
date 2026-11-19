@@ -20,7 +20,7 @@ type PublicProduct = {
 };
 
 function normalizeProductName(value: string) {
-  return value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 export const dynamic = "force-dynamic";

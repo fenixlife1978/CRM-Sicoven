@@ -19,7 +19,7 @@ type PublicProduct = {
 };
 
 function normalizeProductName(value: string) {
-  return value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 export const dynamic = "force-dynamic";
@@ -87,7 +87,7 @@ export default async function PublicCatalogPage() {
         });
         if (response.ok) {
           const release = await response.json() as { tag_name?: string; assets?: Array<{ name?: string; browser_download_url?: string }> };
-          const installer = (release.assets || []).find(asset => /^Notaria\\.VE\\.Setup\\.\\d+\\.\\d+\\.\\d+\\.exe$/i.test(String(asset.name || "")));
+          const installer = (release.assets || []).find(asset => /^Notaria\.VE\.Setup\.\d+\.\d+\.\d+\.exe$/i.test(String(asset.name || "")));
           if (installer?.browser_download_url) {
             product.version = String(release.tag_name || "").replace(/^v/i, "") || product.version;
             product.download_url = installer.browser_download_url;
@@ -110,7 +110,7 @@ export default async function PublicCatalogPage() {
         });
         if (response.ok) {
           const release = await response.json() as { tag_name?: string; assets?: Array<{ name?: string; browser_download_url?: string }> };
-          const installer = (release.assets || []).find(asset => /^SIFER360-\\d+\\.\\d+\\.\\d+-Instalador\\.exe$/i.test(String(asset.name || "")));
+          const installer = (release.assets || []).find(asset => /^SIFER360-\d+\.\d+\.\d+-Instalador\.exe$/i.test(String(asset.name || "")));
           if (installer?.browser_download_url) {
             product.version = String(release.tag_name || "").replace(/^v/i, "") || product.version;
             product.download_url = installer.browser_download_url;

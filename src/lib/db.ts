@@ -278,9 +278,8 @@ export async function ensureSchema() {
       args: [siferProductId]
     });
   }
-  // Retirar el registro duplicado antiguo de SIFER360 Licorería.
-  // Solo se elimina físicamente si no existen licencias ni reportes de pago asociados.
-  // El producto canónico prod-sifer360-licoreria permanece intacto.
+  // Retirar de la publicación el registro legado duplicado de SIFER360 Licorería.
+  // Si conserva licencias o pagos, se archiva para mantener la trazabilidad; nunca debe seguir visible.
   const duplicateSiferId = "01c45af8-7061-4035-945b-88707bd86825";
   const duplicateSifer = await db.execute({
     sql: "SELECT id FROM products WHERE id=? LIMIT 1",
@@ -304,9 +303,18 @@ export async function ensureSchema() {
       });
       planReports += Number(result.rows[0]?.count || 0);
     }
-    if (Number(duplicateLicenses.rows[0]?.count || 0) === 0 &&
-        Number(duplicateReports.rows[0]?.count || 0) === 0 &&
-        planReports === 0) {
+    const hasCommercialHistory =
+      Number(duplicateLicenses.rows[0]?.count || 0) > 0 ||
+      Number(duplicateReports.rows[0]?.count || 0) > 0 ||
+      planReports > 0;
+
+    if (hasCommercialHistory) {
+      // Conserva relaciones históricas, pero impide que aparezca en el catálogo o tenga una descarga muerta.
+      await db.execute({
+        sql: "UPDATE products SET status='inactive',download_url=NULL,download_label=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+        args: [duplicateSiferId]
+      });
+    } else {
       await db.batch([
         { sql: "DELETE FROM product_images WHERE product_id=?", args: [duplicateSiferId] },
         { sql: "DELETE FROM commercial_plan_features WHERE plan_id IN (SELECT id FROM commercial_plans WHERE product_id=?)", args: [duplicateSiferId] },

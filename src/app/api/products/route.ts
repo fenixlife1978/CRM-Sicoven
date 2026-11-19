@@ -18,7 +18,7 @@ export async function GET() {
   try {
     await bootstrapDatabase();
     const result = await getDb().execute({
-      sql: "SELECT p.id,p.name,p.edition,p.version,p.description,p.slogan,p.public_review,p.download_url,p.download_label,p.status,p.created_at,(SELECT COUNT(*) FROM licenses l WHERE l.product_id=p.id) AS license_count FROM products p ORDER BY p.name LIMIT 250"
+      sql: "SELECT p.id,p.name,p.edition,p.version,p.description,p.slogan,p.public_review,p.download_url,p.download_label,p.logo_url,p.icon_url,p.status,p.created_at,(SELECT COUNT(*) FROM licenses l WHERE l.product_id=p.id) AS license_count FROM products p ORDER BY p.name LIMIT 250"
     });
     return NextResponse.json({ products: result.rows });
   } catch {

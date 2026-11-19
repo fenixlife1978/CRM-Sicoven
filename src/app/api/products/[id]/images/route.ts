@@ -76,11 +76,11 @@ export async function DELETE(request: NextRequest, context: Context) {
     const db = getDb();
     const result = await db.execute({ sql: "SELECT id,url,media_type FROM product_images WHERE id=? AND product_id=? LIMIT 1", args: [imageId,id] });
     if (!result.rows.length) return NextResponse.json({ error: "Imagen no encontrada." }, { status: 404, headers: noStore });
-    await del(String(result.rows[0].url));
     await db.batch([
       { sql: "DELETE FROM product_images WHERE id=? AND product_id=?", args: [imageId,id] },
       { sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)", args: [randomUUID(),session.sub,String(result.rows[0].media_type)==="video"?"product_video_deleted":"product_image_deleted","product",id,JSON.stringify({ imageId, mediaType: result.rows[0].media_type || "image" })] }
     ], "write");
+    try { await del(String(result.rows[0].url)); } catch { /* A failed Blob cleanup must not restore a deleted gallery entry. */ }
     return NextResponse.json({ ok: true }, { headers: noStore });
   } catch {
     return NextResponse.json({ error: "No se pudo eliminar la imagen." }, { status: 503, headers: noStore });

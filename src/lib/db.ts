@@ -249,8 +249,8 @@ export async function ensureSchema() {
 
   // Producto SIFER360 LICORERÍA: independiente de SICOVEN y con planes comerciales propios.
   const siferProductResult = await db.execute({
-    sql: "SELECT id FROM products WHERE id=? OR product_code=? OR LOWER(TRIM(name)) LIKE 'sifer360%' ORDER BY CASE WHEN id=? THEN 0 WHEN product_code=? THEN 1 ELSE 2 END,created_at,id LIMIT 1",
-    args: ["prod-sifer360-licoreria", "SIFER360_LICORERIA", "prod-sifer360-licoreria", "SIFER360_LICORERIA"]
+    sql: "SELECT id FROM products WHERE id=? OR product_code=? OR LOWER(TRIM(name)) LIKE 'sifer360%' ORDER BY CASE WHEN product_code=? THEN 0 WHEN id=? THEN 1 ELSE 2 END,created_at,id LIMIT 1",
+    args: ["prod-sifer360-licoreria", "SIFER360_LICORERIA", "SIFER360_LICORERIA", "prod-sifer360-licoreria"]
   });
   let siferProductId = siferProductResult.rows[0]?.id ? String(siferProductResult.rows[0].id) : "";
   if (!siferProductId) {

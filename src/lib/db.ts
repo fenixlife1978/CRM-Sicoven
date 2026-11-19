@@ -143,13 +143,13 @@ export async function ensureSchema() {
   });
   if (notariaProduct.rows.length) {
     await db.execute({
-      sql: "UPDATE products SET name='Notaría VE',product_code='NOTARIAVE_DESKTOP',edition='Aplicación de escritorio para notarías',version='1.0.3',description=COALESCE(NULLIF(description,''),'Sistema local de gestión notarial para Windows.'),download_url='https://github.com/fenixlife1978/NotariaVE/releases/download/v1.0.3/Notaria.VE.Setup.1.0.3.exe',download_label='Descarga gratuita · Instalador Windows · v1.0.3',status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?",
+      sql: "UPDATE products SET name='Notaría VE',product_code='NOTARIAVE_DESKTOP',edition='Aplicación de escritorio para notarías',version='1.0.4',description=COALESCE(NULLIF(description,''),'Sistema local de gestión notarial para Windows.'),download_url='https://github.com/fenixlife1978/NotariaVE/releases/download/v1.0.4/Notaria.VE.Setup.1.0.4.exe',download_label='Descarga gratuita · Instalador Windows · v1.0.4',status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?",
       args: [String(notariaProduct.rows[0].id)]
     });
   } else {
     await db.execute({
       sql: "INSERT OR IGNORE INTO products (id,name,product_code,edition,version,description,download_url,download_label,status) VALUES (?,?,?,?,?,?,?,?, 'active')",
-      args: ["prod-notariave","Notaría VE","NOTARIAVE_DESKTOP","Aplicación de escritorio para notarías","1.0.3","Sistema local de gestión notarial para Windows.","https://github.com/fenixlife1978/NotariaVE/releases/download/v1.0.3/Notaria.VE.Setup.1.0.3.exe","Descarga gratuita · Instalador Windows · v1.0.3"]
+      args: ["prod-notariave","Notaría VE","NOTARIAVE_DESKTOP","Aplicación de escritorio para notarías","1.0.4","Sistema local de gestión notarial para Windows.","https://github.com/fenixlife1978/NotariaVE/releases/download/v1.0.4/Notaria.VE.Setup.1.0.4.exe","Descarga gratuita · Instalador Windows · v1.0.4"]
     });
   }
 
@@ -249,8 +249,8 @@ export async function ensureSchema() {
 
   // Producto SIFER360 LICORERÍA: independiente de SICOVEN y con planes comerciales propios.
   const siferProductResult = await db.execute({
-    sql: "SELECT id FROM products WHERE id=? OR product_code=? LIMIT 1",
-    args: ["prod-sifer360-licoreria", "SIFER360_LICORERIA"]
+    sql: "SELECT id FROM products WHERE id=? OR product_code=? OR LOWER(TRIM(name)) LIKE 'sifer360%' ORDER BY CASE WHEN id=? THEN 0 WHEN product_code=? THEN 1 ELSE 2 END,created_at,id LIMIT 1",
+    args: ["prod-sifer360-licoreria", "SIFER360_LICORERIA", "prod-sifer360-licoreria", "SIFER360_LICORERIA"]
   });
   let siferProductId = siferProductResult.rows[0]?.id ? String(siferProductResult.rows[0].id) : "";
   if (!siferProductId) {
@@ -261,7 +261,7 @@ export async function ensureSchema() {
     });
   } else {
     await db.execute({
-      sql: "UPDATE products SET product_code='SIFER360_LICORERIA' WHERE id=? AND (product_code IS NULL OR TRIM(product_code)='')",
+      sql: "UPDATE products SET name='SIFER360 Licorería',product_code='SIFER360_LICORERIA',status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?",
       args: [siferProductId]
     });
   }

@@ -15,7 +15,7 @@ type PublicProduct = {
   public_review: string | null;
   download_url: string | null;
   download_label: string | null;
-  images: { id: string; url: string; alt_text: string | null }[];
+  images: { id: string; url: string; alt_text: string | null; media_type: "image" | "video" }[];
 };
 
 export const dynamic = "force-dynamic";
@@ -93,8 +93,8 @@ export default async function PublicCatalogPage() {
       }
     }
     if (products.length) {
-      const images = await getDb().execute({ sql: "SELECT id,product_id,url,alt_text FROM product_images WHERE product_id IN (" + products.map(() => "?").join(",") + ") ORDER BY sort_order,created_at", args: products.map((product) => product.id) });
-      products = products.map((product) => ({ ...product, images: images.rows.filter((image) => String(image.product_id) === product.id).map((image) => ({ id: String(image.id), url: String(image.url), alt_text: image.alt_text == null ? null : String(image.alt_text) })) }));
+      const images = await getDb().execute({ sql: "SELECT id,product_id,url,alt_text,media_type FROM product_images WHERE product_id IN (" + products.map(() => "?").join(",") + ") ORDER BY sort_order,created_at", args: products.map((product) => product.id) });
+      products = products.map((product) => ({ ...product, images: images.rows.filter((image) => String(image.product_id) === product.id).map((image) => ({ id: String(image.id), url: String(image.url), alt_text: image.alt_text == null ? null : String(image.alt_text), media_type: String(image.media_type || "image") === "video" ? "video" : "image" })) }));
     }
   } catch {
     unavailable = true;

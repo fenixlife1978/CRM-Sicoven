@@ -50,6 +50,12 @@ export async function ensureSchema() {
       url TEXT NOT NULL, pathname TEXT NOT NULL, alt_text TEXT, sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )` },
+    { sql: `CREATE TABLE IF NOT EXISTS commercial_plan_features (
+      id TEXT PRIMARY KEY, plan_id TEXT NOT NULL REFERENCES commercial_plans(id) ON DELETE CASCADE,
+      feature_text TEXT NOT NULL CHECK(length(trim(feature_text)) BETWEEN 1 AND 180),
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )` },
     { sql: `CREATE INDEX IF NOT EXISTS product_images_product_idx ON product_images(product_id,sort_order,created_at)` },
     { sql: `CREATE TABLE IF NOT EXISTS licenses (
       id TEXT PRIMARY KEY, customer_id TEXT NOT NULL REFERENCES customers(id),
@@ -99,6 +105,9 @@ export async function ensureSchema() {
       active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )` },
+
+    { sql: `CREATE INDEX IF NOT EXISTS commercial_plan_features_order_idx
+      ON commercial_plan_features(plan_id,sort_order,created_at)` },
     { sql: `CREATE TABLE IF NOT EXISTS payment_bank_accounts (
       id TEXT PRIMARY KEY, bank_code TEXT NOT NULL CHECK(bank_code IN ('BDV','MERCANTIL')),
       bank_name TEXT NOT NULL, holder_name TEXT NOT NULL, identity_document TEXT NOT NULL,
@@ -121,6 +130,10 @@ export async function ensureSchema() {
   ], "write");
 
   // Additive migrations for existing production databases; safe to run repeatedly.
+  // Media gallery migration: existing photos remain images; new videos share the product gallery.
+  const mediaColumns = await db.execute("PRAGMA table_info(product_images)");
+  const existingMediaColumns = new Set(mediaColumns.rows.map((column) => String(column.name)));
+  if (!existingMediaColumns.has("media_type")) await db.execute("ALTER TABLE product_images ADD COLUMN media_type TEXT NOT NULL DEFAULT 'image'");
   const productColumns = await db.execute("PRAGMA table_info(products)");
   const existingProductColumns = new Set(productColumns.rows.map((column) => String(column.name)));
   if (!existingProductColumns.has("product_code")) await db.execute("ALTER TABLE products ADD COLUMN product_code TEXT");
@@ -265,6 +278,52 @@ export async function ensureSchema() {
       args: [siferProductId]
     });
   }
+  // Retirar de la publicación el registro legado duplicado de SIFER360 Licorería.
+  // Si conserva licencias o pagos, se archiva para mantener la trazabilidad; nunca debe seguir visible.
+  const duplicateSiferId = "01c45af8-7061-4035-945b-88707bd86825";
+  const duplicateSifer = await db.execute({
+    sql: "SELECT id FROM products WHERE id=? LIMIT 1",
+    args: [duplicateSiferId]
+  });
+  if (duplicateSifer.rows.length) {
+    const [duplicateLicenses, duplicateReports] = await Promise.all([
+      db.execute({ sql: "SELECT COUNT(*) AS count FROM licenses WHERE product_id=?", args: [duplicateSiferId] }),
+      db.execute({ sql: "SELECT COUNT(*) AS count FROM payment_reports WHERE product_id=?", args: [duplicateSiferId] })
+    ]);
+    const duplicatePlans = await db.execute({
+      sql: "SELECT id FROM commercial_plans WHERE product_id=?",
+      args: [duplicateSiferId]
+    });
+    const planIds = duplicatePlans.rows.map((row) => String(row.id));
+    let planReports = 0;
+    for (const planId of planIds) {
+      const result = await db.execute({
+        sql: "SELECT COUNT(*) AS count FROM payment_reports WHERE plan_id=?",
+        args: [planId]
+      });
+      planReports += Number(result.rows[0]?.count || 0);
+    }
+    const hasCommercialHistory =
+      Number(duplicateLicenses.rows[0]?.count || 0) > 0 ||
+      Number(duplicateReports.rows[0]?.count || 0) > 0 ||
+      planReports > 0;
+
+    if (hasCommercialHistory) {
+      // Conserva relaciones históricas, pero impide que aparezca en el catálogo o tenga una descarga muerta.
+      await db.execute({
+        sql: "UPDATE products SET status='inactive',download_url=NULL,download_label=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+        args: [duplicateSiferId]
+      });
+    } else {
+      await db.batch([
+        { sql: "DELETE FROM product_images WHERE product_id=?", args: [duplicateSiferId] },
+        { sql: "DELETE FROM commercial_plan_features WHERE plan_id IN (SELECT id FROM commercial_plans WHERE product_id=?)", args: [duplicateSiferId] },
+        { sql: "DELETE FROM commercial_plans WHERE product_id=?", args: [duplicateSiferId] },
+        { sql: "DELETE FROM products WHERE id=?", args: [duplicateSiferId] }
+      ], "write");
+    }
+  }
+
   const siferPlanCount = await db.execute({ sql: "SELECT COUNT(*) AS count FROM commercial_plans WHERE product_id=?", args: [siferProductId] });
   if (Number(siferPlanCount.rows[0]?.count || 0) === 0) {
     await db.batch([

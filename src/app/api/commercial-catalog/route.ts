@@ -32,18 +32,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const [plans, banks, whatsapp] = await Promise.all([
+    const [plans, banks, whatsapp, features] = await Promise.all([
       db.execute({
         sql: "SELECT cp.id,cp.product_id,cp.name,cp.description,cp.price_amount,cp.currency,cp.duration_days,cp.max_activations FROM commercial_plans cp WHERE cp.product_id=? AND cp.active=1 ORDER BY cp.price_amount",
         args: [productId]
       }),
       db.execute("SELECT id,bank_code,bank_name,identity_document,phone_number,account_number FROM payment_bank_accounts WHERE active=1 ORDER BY bank_name,created_at DESC"),
-      db.execute("SELECT setting_value FROM commercial_settings WHERE setting_key='whatsapp_admin_phone' LIMIT 1")
+      db.execute("SELECT setting_value FROM commercial_settings WHERE setting_key='whatsapp_admin_phone' LIMIT 1"),
+      db.execute({sql:"SELECT plan_id,feature_text,sort_order FROM commercial_plan_features WHERE plan_id IN (SELECT id FROM commercial_plans WHERE product_id=? AND active=1) ORDER BY plan_id,sort_order,created_at",args:[productId]})
     ]);
+    const planRows=plans.rows.map(plan=>({...plan,features:features.rows.filter(feature=>String(feature.plan_id)===String(plan.id)).map(feature=>String(feature.feature_text))}));
 
     return NextResponse.json({
       products: [product],
-      plans: plans.rows,
+      plans: planRows,
       banks: banks.rows,
       whatsappAdminPhone: String(whatsapp.rows[0]?.setting_value || "04125773996")
     }, { headers: noStore });

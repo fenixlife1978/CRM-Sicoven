@@ -796,11 +796,7 @@ export default function BuySoftwarePage() {
                         {/* Plan Features column matching Image 1 */}
                         <div className="sm:col-span-6 border-t sm:border-t-0 sm:border-l border-slate-100 sm:pl-3 pt-2 sm:pt-0">
                           <ul className="space-y-1 text-xs text-[#2c4561]">
-                            {(plan.features || [
-                              "1 equipo",
-                              "1 usuario",
-                              "Soporte técnico"
-                            ]).map((feat, idx) => (
+                            {(plan.features || []).map((feat, idx) => (
                               <li key={idx} className="flex items-center gap-1.5">
                                 <span className="text-[#0066cc] font-bold text-xs">✓</span>
                                 <span className="text-[11.5px]">{feat}</span>

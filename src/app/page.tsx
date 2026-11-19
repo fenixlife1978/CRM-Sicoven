@@ -67,12 +67,17 @@ export default async function PublicCatalogPage() {
     // SICOVEN descarga siempre la última Release estable publicada en el repositorio oficial.
     // Los borradores y prereleases no aparecen en /releases/latest.
     for (const product of products) {
-      if (product.product_code !== "SICOVEN_DESKTOP") continue;
+      // Algunas fichas antiguas conservan un código genérico asignado antes de
+      // introducir SICOVEN_DESKTOP. El nombre permite reconocer esa ficha sin
+      // depender de una migración manual de la base de datos de producción.
+      const isSicoven = product.product_code === "SICOVEN_DESKTOP"
+        || product.name.trim().toLowerCase() === "sicoven";
+      if (!isSicoven) continue;
       try {
         const response = await fetch("https://api.github.com/repos/fenixlife1978/sicoven-descargas/releases/latest", {
           headers: { Accept: "application/vnd.github+json", "User-Agent": "CRM-SICOVEN-Catalog" },
-          next: { revalidate: 300 },
-          signal: AbortSignal.timeout(4000)
+          cache: "no-store",
+          signal: AbortSignal.timeout(10000)
         });
         if (response.ok) {
           const release = await response.json() as { tag_name?: string; assets?: Array<{ name?: string; browser_download_url?: string }> };

@@ -18,6 +18,10 @@ type PublicProduct = {
   images: { id: string; url: string; alt_text: string | null }[];
 };
 
+function normalizeProductName(value: string) {
+  return value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function PublicCatalogPage() {
@@ -27,7 +31,7 @@ export default async function PublicCatalogPage() {
   try {
     await bootstrapDatabase();
     const result = await getDb().execute({
-      sql: "SELECT id,name,product_code,edition,version,description,slogan,public_review,download_url,download_label FROM products WHERE status='active' ORDER BY name LIMIT 100"
+      sql: "SELECT id,name,product_code,edition,version,description,slogan,public_review,download_url,download_label FROM products WHERE status='active' ORDER BY CASE WHEN product_code IN ('NOTARIAVE_DESKTOP','SIFER360_LICORERIA') THEN 0 ELSE 1 END,name,created_at,id LIMIT 100"
     });
     products = result.rows.map((row) => ({
       id: String(row.id),
@@ -42,22 +46,75 @@ export default async function PublicCatalogPage() {
       download_label: row.download_label == null ? null : String(row.download_label),
       images: []
     }));
-    // La última Release oficial de SIFER360 mantiene actualizado el instalador del catálogo sin edición manual.
+    // Ocultar fichas duplicadas de escritorio sin borrar ni alterar licencias,
+    // planes, pagos o auditorías asociados a los registros históricos.
+    const preferredProductByFamily = new Map<string, PublicProduct>();
     for (const product of products) {
-      if (product.product_code !== "SIFER360_LICORERIA") continue;
+      const normalizedName = normalizeProductName(product.name);
+      const family = product.product_code === "NOTARIAVE_DESKTOP" || normalizedName === "notariave"
+        ? "NOTARIAVE_DESKTOP"
+        : product.product_code === "SIFER360_LICORERIA" || normalizedName === "sifer360licoreria"
+          ? "SIFER360_LICORERIA"
+          : null;
+      if (!family) continue;
+      const current = preferredProductByFamily.get(family);
+      if (!current || (product.product_code === family && current.product_code !== family)) {
+        preferredProductByFamily.set(family, product);
+      }
+    }
+    const preferredIds = new Set(Array.from(preferredProductByFamily.values()).map(product => product.id));
+    const seenFamilies = new Set<string>();
+    products = products.filter(product => {
+      const normalizedName = normalizeProductName(product.name);
+      const family = product.product_code === "NOTARIAVE_DESKTOP" || normalizedName === "notariave"
+        ? "NOTARIAVE_DESKTOP"
+        : product.product_code === "SIFER360_LICORERIA" || normalizedName === "sifer360licoreria"
+          ? "SIFER360_LICORERIA"
+          : null;
+      if (!family) return true;
+      if (seenFamilies.has(family)) return false;
+      seenFamilies.add(family);
+      return preferredIds.has(product.id);
+    });
+    // Mantener Notaría VE sincronizada con la última Release estable oficial.
+    for (const product of products) {
+      if (product.product_code !== "NOTARIAVE_DESKTOP" && normalizeProductName(product.name) !== "notariave") continue;
       try {
-        const response = await fetch("https://api.github.com/repos/fenixlife1978/Sifer360-licoreria/releases/latest", {
+        const response = await fetch("https://api.github.com/repos/fenixlife1978/NotariaVE/releases/latest", {
           headers: { Accept: "application/vnd.github+json", "User-Agent": "CRM-SICOVEN-Catalog" },
-          next: { revalidate: 300 },
-          signal: AbortSignal.timeout(4000)
+          cache: "no-store",
+          signal: AbortSignal.timeout(10000)
         });
         if (response.ok) {
           const release = await response.json() as { tag_name?: string; assets?: Array<{ name?: string; browser_download_url?: string }> };
-          const installer = (release.assets || []).find(asset => /SIFER360-.*-Instalador\.exe$/i.test(String(asset.name || "")));
+          const installer = (release.assets || []).find(asset => /^Notaria\\.VE\\.Setup\\.\\d+\\.\\d+\\.\\d+\\.exe$/i.test(String(asset.name || "")));
           if (installer?.browser_download_url) {
             product.version = String(release.tag_name || "").replace(/^v/i, "") || product.version;
             product.download_url = installer.browser_download_url;
-            product.download_label = "Descarga gratuita · Instalador Windows " + product.version;
+            product.download_label = "Descarga gratuita · Instalador Windows · v" + product.version;
+          }
+        }
+      } catch {
+        // Si GitHub no responde, se conserva la última URL guardada en el CRM.
+      }
+    }
+
+    // Resolver SIFER360 también cuando una ficha histórica conserva un código genérico.
+    for (const product of products) {
+      if (product.product_code !== "SIFER360_LICORERIA" && normalizeProductName(product.name) !== "sifer360licoreria") continue;
+      try {
+        const response = await fetch("https://api.github.com/repos/fenixlife1978/Sifer360-licoreria/releases/latest", {
+          headers: { Accept: "application/vnd.github+json", "User-Agent": "CRM-SICOVEN-Catalog" },
+          cache: "no-store",
+          signal: AbortSignal.timeout(10000)
+        });
+        if (response.ok) {
+          const release = await response.json() as { tag_name?: string; assets?: Array<{ name?: string; browser_download_url?: string }> };
+          const installer = (release.assets || []).find(asset => /^SIFER360-\\d+\\.\\d+\\.\\d+-Instalador\\.exe$/i.test(String(asset.name || "")));
+          if (installer?.browser_download_url) {
+            product.version = String(release.tag_name || "").replace(/^v/i, "") || product.version;
+            product.download_url = installer.browser_download_url;
+            product.download_label = "Descarga gratuita · Instalador Windows · v" + product.version;
           }
         }
       } catch {

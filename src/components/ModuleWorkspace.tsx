@@ -59,6 +59,41 @@ function downloadCertificate(certificate: Record<string, unknown>) {
   <footer class="footer"><span>EFASfreelancer Soluciones Digitales · RIF V-13313521-5</span><span class="stamp">CERTIFICADO DE LICENCIA · ${esc(certificate.certificateId)}</span></footer></div></article></body></html>`);
   page.document.close();
 }
+function normalizeProductName(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function uniqueDesktopProducts(records: RecordItem[]) {
+  const preferred = new Map<string, RecordItem>();
+  for (const record of records) {
+    const code = String(record.product_code || "");
+    const name = normalizeProductName(String(record.name || ""));
+    const family = code === "NOTARIAVE_DESKTOP" || name === "notariave"
+      ? "NOTARIAVE_DESKTOP"
+      : code === "SIFER360_LICORERIA" || name === "sifer360licoreria"
+        ? "SIFER360_LICORERIA"
+        : null;
+    if (!family) continue;
+    const current = preferred.get(family);
+    if (!current || (code === family && String(current.product_code || "") !== family)) preferred.set(family, record);
+  }
+  const ids = new Set(Array.from(preferred.values()).map(record => String(record.id || "")));
+  const seen = new Set<string>();
+  return records.filter(record => {
+    const code = String(record.product_code || "");
+    const name = normalizeProductName(String(record.name || ""));
+    const family = code === "NOTARIAVE_DESKTOP" || name === "notariave"
+      ? "NOTARIAVE_DESKTOP"
+      : code === "SIFER360_LICORERIA" || name === "sifer360licoreria"
+        ? "SIFER360_LICORERIA"
+        : null;
+    if (!family) return true;
+    if (seen.has(family)) return false;
+    seen.add(family);
+    return ids.has(String(record.id || ""));
+  });
+}
+
 function text(value: unknown) {
   return value === null || value === undefined || value === "" ? "—" : String(value);
 }
@@ -89,7 +124,8 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
       const response = await fetch(kind === "clientes" ? `${current.endpoint}?q=${encodeURIComponent(query)}` : current.endpoint, { cache: "no-store" });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "No se pudieron cargar los registros.");
-      setItems(Array.isArray(result[current.collection]) ? result[current.collection] : []);
+      const loadedItems = Array.isArray(result[current.collection]) ? result[current.collection] as RecordItem[] : [];
+      setItems(kind === "productos" ? uniqueDesktopProducts(loadedItems) : loadedItems);
       if (kind === "licencias") {
         const [c, p, t] = await Promise.all([fetch("/api/customers", { cache: "no-store" }), fetch("/api/products", { cache: "no-store" }), fetch("/api/license-types", { cache: "no-store" })]);
         const cr = await c.json(), pr = await p.json(), tr = await t.json();

@@ -86,6 +86,7 @@ type Product = {
   edition?: string | null;
   version?: string | null;
   description?: string | null;
+  logo_url?: string | null;
 };
 
 type Plan = {

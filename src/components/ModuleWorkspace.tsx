@@ -199,7 +199,10 @@ export default function ModuleWorkspace({ kind }: { kind: Kind }) {
           if (!response.ok) throw new Error(result.error || "No se pudo actualizar la galería.");
           latest = Array.isArray(result.images) ? result.images as ProductImage[] : [];
           if (latest.some(item => item.url === uploadedBlob.url)) break;
-          await new Promise(resolve => setTimeout(resolve, 500));
+          if (attempt < 19) await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        if (!latest.some(item => item.url === uploadedBlob.url)) {
+          throw new Error("El archivo llegó a Vercel Blob, pero no quedó registrado en la galería de Turso. Actualiza la galería antes de volver a subirlo.");
         }
         setProductImages(latest);
       }

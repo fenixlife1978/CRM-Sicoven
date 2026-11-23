@@ -172,7 +172,7 @@ export async function ensureSchema() {
   // One-time release migration: update the existing SICOVEN desktop catalog record from 1.0.37 to 1.1.0.
   // Guarded by product_code and previous version so it never overwrites later releases or creates duplicates.
   const sicovenReleaseUpdate = await db.execute({
-    sql: "UPDATE products SET version='1.1.0',download_url='https://github.com/fenixlife1978/sicoven-descargas/releases/download/v1.1.0/SICOVEN-Setup-1.1.0-x64.exe',download_label='Descargar SICOVEN 1.1.0',updated_at=CURRENT_TIMESTAMP WHERE product_code='SICOVEN_DESKTOP' AND version='1.0.37' AND status='active'",
+    sql: "UPDATE products SET version='1.1.0',download_url='https://github.com/fenixlife1978/sicoven-descargas/releases/download/v1.1.0/SICOVEN-Setup-1.1.0-x64.exe',download_label='Descargar SICOVEN 1.1.0',updated_at=CURRENT_TIMESTAMP WHERE (product_code='SICOVEN_DESKTOP' OR LOWER(TRIM(name))='sistema contable (sicoven)') AND version='1.0.37' AND status='active'",
   });
   if (sicovenReleaseUpdate.rowsAffected > 0) {
     const updatedSicoven = await db.execute({ sql: "SELECT id FROM products WHERE product_code='SICOVEN_DESKTOP' AND version='1.1.0' LIMIT 1" });

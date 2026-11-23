@@ -168,6 +168,22 @@ export async function ensureSchema() {
     });
   }
 
+  // One-time release migration: update the existing SICOVEN desktop catalog record from 1.0.37 to 1.1.0.
+  // Guarded by product_code and previous version so it never overwrites later releases or creates duplicates.
+  const sicovenReleaseUpdate = await db.execute({
+    sql: "UPDATE products SET version='1.1.0',download_url='https://github.com/fenixlife1978/sicoven-descargas/releases/download/v1.1.0/SICOVEN-Setup-1.1.0-x64.exe',download_label='Descargar SICOVEN 1.1.0',updated_at=CURRENT_TIMESTAMP WHERE product_code='SICOVEN_DESKTOP' AND version='1.0.37' AND status='active'",
+  });
+  if (sicovenReleaseUpdate.rowsAffected > 0) {
+    const updatedSicoven = await db.execute({ sql: "SELECT id FROM products WHERE product_code='SICOVEN_DESKTOP' AND version='1.1.0' LIMIT 1" });
+    if (updatedSicoven.rows.length) {
+      await db.execute({
+        sql: "INSERT INTO audit_log (id,user_id,action,entity_type,entity_id,metadata_json) VALUES (?,?,?,?,?,?)",
+        args: [randomUUID(), null, "product_release_migrated", "product", String(updatedSicoven.rows[0].id), JSON.stringify({ product_code: "SICOVEN_DESKTOP", from_version: "1.0.37", to_version: "1.1.0", migration: "bootstrap" })]
+      });
+    }
+  }
+
+
   await db.execute("CREATE TRIGGER IF NOT EXISTS products_assign_product_code\nAFTER INSERT ON products\nWHEN NEW.product_code IS NULL OR TRIM(NEW.product_code) = ''\nBEGIN\n  UPDATE products SET product_code = CASE\n    WHEN LOWER(TRIM(NEW.name)) LIKE 'sicoven%'\n      AND NOT EXISTS (SELECT 1 FROM products WHERE product_code = 'SICOVEN_DESKTOP')\n    THEN 'SICOVEN_DESKTOP'\n    ELSE 'PRODUCT_' || UPPER(REPLACE(NEW.id, '-', '_'))\n  END\n  WHERE id = NEW.id;\nEND");
   const activationColumns = await db.execute("PRAGMA table_info(activations)");
   const existingActivationColumns = new Set(activationColumns.rows.map((column) => String(column.name)));

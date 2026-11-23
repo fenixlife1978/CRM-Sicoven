@@ -1,4 +1,5 @@
 import { createClient, type Client } from "@libsql/client";
+import { randomUUID } from "node:crypto";
 
 let client: Client | undefined;
 
